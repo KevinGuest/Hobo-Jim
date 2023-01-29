@@ -1,1 +1,1 @@
-# HoloRP-DiscordBot
+#DiscordBot
