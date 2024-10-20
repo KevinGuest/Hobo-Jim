@@ -1,0 +1,32 @@
+{
+  "name": "bobba-bot-v2",
+  "version": "2.0.0",
+  "description": "A discord bot with slash commands",
+  "main": "index.js",
+  "dependencies": {
+    "discord.js": "^14.7.1",
+    "dotenv": "^16.0.3",
+    "node-fetch": "^3.3.2"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "test": "node start.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BobbaCA/Bobba-Bot.git"
+  },
+  "keywords": [
+    "v14",
+    "slash",
+    "template",
+    "discord.js",
+    "nodejs"
+  ],
+  "author": "KevinGuest",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/BobbaCA/Bobba-Bot/issues"
+  },
+  "homepage": "https://github.com/BobbaCA/Bobba-Bot#readme"
+}
