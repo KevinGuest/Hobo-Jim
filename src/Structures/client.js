@@ -1,9 +1,27 @@
 const { Client, GatewayIntentBits, Collection } = require("discord.js");
+
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
   presence: {
-    activities: [{ name: "use /", type: 0 }],
-    status: "dnd",
+    activities: [
+      {
+        name: "BobbaRP", // Name of the activity
+        type: 0, // 0 is for "Playing"
+        state: "Playing Solo", // Custom state
+        details: "Idle", // Details about the activity
+        timestamps: {
+          start: 1507665886, // Start timestamp (in epoch time)
+          end: 1507665886, // End timestamp (in epoch time)
+        },
+        assets: {
+          largeImage: "serverinvite", // Large image key (from the developer portal)
+          largeText: "bobba.ca", // Tooltip for large image
+          smallImage: "bobba-large", // Small image key (if you have one)
+          smallText: "Jim - Level 20", // Tooltip for small image
+        },
+      },
+    ],
+    status: "dnd", // Bot status (can be "online", "idle", "dnd")
   },
 });
 
