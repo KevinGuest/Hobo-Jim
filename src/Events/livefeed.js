@@ -30,7 +30,6 @@ function loadProcessedEventIds() {
 
 function saveProcessedEventIds() {
     fs.writeFileSync(processedEventFile, JSON.stringify(Array.from(processedEventIds)));
-    console.log('[INFO] Processed event IDs saved to file.');
 }
 
 // Function to strip HTML tags and detect emoji/color based on key phrases in the message
@@ -175,7 +174,6 @@ client.once('ready', async () => {
 
                     // Prevent reprocessing the same event...
                     if (processedEventIds.has(eventId)) {
-                        console.log(`[WEBSOCKET] Skipping already processed event with hash: ${eventId}`);
                         continue;
                     }
 
