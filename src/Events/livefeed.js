@@ -1,5 +1,14 @@
 const { Client, GatewayIntentBits, TextChannel, EmbedBuilder } = require('discord.js');
 const WebSocket = require('ws');
+const crypto = require('crypto'); // Import the crypto module to generate a hash
+
+// Track processed event hashes to prevent duplicates
+let processedEventIds = new Set();
+
+// Function to generate a unique hash based on the message content
+function generateHash(message) {
+    return crypto.createHash('sha1').update(message).digest('hex');
+}
 
 // Function to strip HTML tags and detect color from span class
 function parseMessageForColor(html) {
@@ -11,7 +20,7 @@ function parseMessageForColor(html) {
     const match = spanRegex.exec(html);
     if (match) {
         const classes = match[1]; // Extract the class from the span tag
-
+    
         // Check class and set color based on it
         if (classes.includes('green')) {
             color = '#00FF00'; // Green
@@ -19,18 +28,20 @@ function parseMessageForColor(html) {
             color = '#FF0000'; // Red
         } else if (classes.includes('yellow')) {
             color = '#FFFF00'; // Yellow
+        } else if (classes.includes('blue')) {
+            color = '#ADD8E6'; // 
         }
-        // You can add more class-to-color mappings here
-
+    
         // Remove the span tag but keep the inner text
         message = html.replace(spanRegex, '$2');
     }
-
+    
     // Strip any remaining HTML tags
     message = message.replace(/<\/?[^>]+(>|$)/g, '');
-
+    
     // Return the cleaned message (stripped of HTML) and the selected color
     return { message: message.trim(), color };
+    
 }
 
 // Initialize the Discord client with necessary intents
@@ -76,15 +87,27 @@ client.once('ready', async () => {
                 for (const value of data) {
                     const { liveAction: message } = value; // Only show liveAction message
 
-                    // Smoke the message to determine color and clean it up
+                    // Generate a unique hash based on the message content
+                    const eventId = generateHash(message);
+
+                    // Prevent reprocessing the same event
+                    if (processedEventIds.has(eventId)) {
+                        console.log(`[WEBSOCKET] Skipping already processed event with hash: ${eventId}`);
+                        continue;
+                    }
+
+                    // Mark the event as processed
+                    processedEventIds.add(eventId);
+
+                    // Parse the message to determine color and clean it up
                     const { message: cleanMessage, color } = parseMessageForColor(message);
 
-                    // Create the embed with the cleaned message and the color referenced in the SendLiveFeedEvent
+                    // Construct the embed with the cleaned message and the determined color
                     const embed = new EmbedBuilder()
-                        .setColor(color) // Sets the color based on the span class in the event sent
-                        .setDescription(cleanMessage); // Show the cleaned message
+                        .setColor(color) // Set the color based on the span class
+                        .setDescription(cleanMessage); // Display the cleaned message
 
-                    // Send the embed to the #livefeed Discord channel
+                    // Send the embed to the specified Discord channel
                     await channel.send({ embeds: [embed] });
                 }
             } catch (error) {
