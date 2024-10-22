@@ -1,14 +1,46 @@
 const { Client, GatewayIntentBits, TextChannel, EmbedBuilder } = require('discord.js');
 const WebSocket = require('ws');
 
-// Ensure you have these intents enabled
+// Function to strip HTML tags and detect color from span class
+function parseMessageForColor(html) {
+    const spanRegex = /<span.*?class="(.*?)".*?>(.*?)<\/span>/i;
+    let color = '#5DCBF0'; // Default color
+    let message = html;
+
+    // Find the <span> tag and extract color if present
+    const match = spanRegex.exec(html);
+    if (match) {
+        const classes = match[1]; // Extract the class from the span tag
+
+        // Check class and set color based on it
+        if (classes.includes('green')) {
+            color = '#00FF00'; // Green
+        } else if (classes.includes('red')) {
+            color = '#FF0000'; // Red
+        } else if (classes.includes('yellow')) {
+            color = '#FFFF00'; // Yellow
+        }
+        // You can add more class-to-color mappings here
+
+        // Remove the span tag but keep the inner text
+        message = html.replace(spanRegex, '$2');
+    }
+
+    // Strip any remaining HTML tags
+    message = message.replace(/<\/?[^>]+(>|$)/g, '');
+
+    // Return the cleaned message (stripped of HTML) and the selected color
+    return { message: message.trim(), color };
+}
+
+// Initialize the Discord client with necessary intents
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
 
 // Event when the bot is ready
 client.once('ready', async () => {
     console.log(`Logged in as ${client.user.tag}!`);
 
-    // 'YOUR_CHANNEL_ID' with channel ID for feed
+    // Replace with your actual channel ID
     const channelId = '1297385881295917088';
     const channel = client.channels.cache.get(channelId);
 
@@ -18,6 +50,7 @@ client.once('ready', async () => {
     }
 
     let websocket;
+
     function initSocket() {
         // Establish WebSocket connection
         websocket = new WebSocket('wss://ws.bobba.ca:8443/LiveFeed');
@@ -41,21 +74,17 @@ client.once('ready', async () => {
                 }
 
                 for (const value of data) {
-                    const { userName: Name, targetName: Target, liveAction: Action } = value;
-                    let description = '';
+                    const { liveAction: message } = value; // Only show liveAction message
 
-                    if (Target === "Nobody") {
-                        description = `**${Name}** ${getType(Action)}`;
-                    } else {
-                        description = `**${Name}** ${getType(Action)} **${Target}**`;
-                    }
+                    // Smoke the message to determine color and clean it up
+                    const { message: cleanMessage, color } = parseMessageForColor(message);
 
-                    // Construct the embed with specific color based on action type
+                    // Create the embed with the cleaned message and the color referenced in the SendLiveFeedEvent
                     const embed = new EmbedBuilder()
-                        .setColor(getColor(Action))
-                        .setDescription(description);
+                        .setColor(color) // Sets the color based on the span class in the event sent
+                        .setDescription(cleanMessage); // Show the cleaned message
 
-                    // Send the embed to the specified Discord channel
+                    // Send the embed to the #livefeed Discord channel
                     await channel.send({ embeds: [embed] });
                 }
             } catch (error) {
@@ -76,44 +105,5 @@ client.once('ready', async () => {
     initSocket();
 });
 
-function getType(type) {
-    switch (type) {
-        case "kill":
-            return "has killed";
-        case "arrest":
-            return "has arrested";
-        case "escort":
-            return "escorted";
-        case "marry":
-            return "has married";
-        case "divorce":
-            return "has divorced";
-        case "evade":
-            return "has evaded the authorities";
-        case "surrender":
-            return "has surrendered to the authorities";
-        default:
-            return "performed an unknown action";
-    }
-}
-
-function getColor(type) {
-    switch (type) {
-        case "kill":
-            return "#FF0000"; // Red for kill
-        case "arrest":
-            return "#5DCBF0"; // Blue for Police Related
-        case "escort":
-            return "#5DCBF0"; // Blue for Police Related
-        case "evade":
-            return "#5DCBF0"; // Blue for Police Related
-        case "surrender":
-            return "#5DCBF0"; // Blue for Police Related
-        case "marry":
-            return "#FFFFFF"; // White for marry
-        case "divorce":
-            return "#000000"; // Black for divorce    
-    }
-}
 // Replace with your bot's token
 client.login('NTg4NTQxNTI5NTIyNzAwMzAx.GXG-Pw.3Pua78SsdbYRgyRPsLKiZRb3jhPryGHQv4cAhQ');
