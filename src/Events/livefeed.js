@@ -84,9 +84,19 @@ function parseMessageForColor(html) {
     } else if (message.toLowerCase().includes('blew up') || message.toLowerCase().includes('blown up')) {
         message = '💣 ' + message; // Bomb emoji for explosions
         color = '#E33232'; // Red for violent actions
-    } else if (message.toLowerCase().includes('sent home')) {
+    } else if (message.toLowerCase().includes('home')) {
         message = '🏠 ' + message; // House emoji
         color = '#43BA55'; // Green for work-related actions
+    } else if (message.toLowerCase().includes('placed a bounty')) {
+        message = '🎯 ' + message; // Target emoji
+        color = '#E33232'; // Red for violent actions
+    } else if (message.toLowerCase().includes('removed their bounty')) {
+        message = '🗑️ ' + message; // Trashcan emoji
+        color = '#43BA55'; // Red for removal related actions
+    } else if (message.toLowerCase().includes('claimed')) {
+        message = '💰 ' + message; // Moneybag emoji
+        color = '#E33232'; // Red for violent actions
+        
     }
 
     // Return the clean message (stripped of HTML) and the selected color based on livefeed action...
