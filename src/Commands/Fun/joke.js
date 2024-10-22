@@ -1,4 +1,4 @@
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 const { EmbedBuilder } = require('discord.js');
 
 module.exports = {
@@ -29,7 +29,7 @@ module.exports = {
                 const joke = jokes[Math.floor(Math.random() * jokes.length)].data;
 
                 const embed = new EmbedBuilder()
-                    .setColor(0x00FF00)
+                    .setColor('#E87E2C')
                     .setTitle(joke.title)
                     .setDescription(joke.selftext.length > 2048 ? joke.selftext.substring(0, 2045) + '...' : joke.selftext)
                     .setFooter({ text: `Posted by ${joke.author}` });

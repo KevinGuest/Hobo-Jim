@@ -18,7 +18,7 @@ module.exports = {
         const copypastaText = randomPost.data.selftext;
 
         const embed = new EmbedBuilder()
-          .setColor(0x00FF00)
+          .setColor('#D9CC43')
           .setTitle(randomPost.data.title)
           .setDescription(copypastaText.length > 2048 ? copypastaText.substring(0, 2045) + '...' : copypastaText)
           .setFooter({ text: `Posted by ${randomPost.data.author}` });

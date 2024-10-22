@@ -19,7 +19,15 @@ module.exports = {
       ];
 
       const url = links[Math.floor(Math.random() * links.length)];
-      https.get(url, (res) => {
+
+      // Set custom headers, including User-Agent
+      const options = {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; MemeBot/1.0; +http://localhost)',
+        },
+      };
+
+      https.get(url, options, (res) => {
         let data = '';
 
         res.on('data', (chunk) => {
@@ -28,15 +36,24 @@ module.exports = {
 
         res.on('end', async () => {
           try {
+            // Check if the response is HTML (error page) instead of JSON
+            if (data.trim().startsWith('<')) {
+              throw new Error('Received an HTML response instead of JSON. Reddit might be blocking this request.');
+            }
+
             const result = JSON.parse(data);
+
             if (result && result.data && result.data.children && result.data.children.length > 0) {
-              const memes = result.data.children.filter(post => post.data.preview && post.data.preview.images && post.data.preview.images.length > 0);
+              const memes = result.data.children.filter(
+                (post) => post.data.preview && post.data.preview.images && post.data.preview.images.length > 0
+              );
+
               if (memes.length > 0) {
                 const meme = memes[Math.floor(Math.random() * memes.length)];
                 const memeData = meme.data;
 
                 const embed = new EmbedBuilder()
-                  .setColor(0x00FF00)
+                  .setColor('#E33232')
                   .setTitle(memeData.title || 'Untitled')
                   .setURL(`https://reddit.com${memeData.permalink}`)
                   .setDescription(memeData.selftext || memeData.url)

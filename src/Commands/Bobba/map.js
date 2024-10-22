@@ -8,7 +8,7 @@ module.exports = {
   },
   async execute(interaction) {
     const embed = new EmbedBuilder()
-      .setColor('#00FF00')
+      .setColor('#E87E2C')
       .setTitle('BobbaRP City Map')
       .setDescription('This is the old Bobba map')
       .setImage('https://bobba.ca/map.png');
