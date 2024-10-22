@@ -1,15 +1,39 @@
 const { Client, GatewayIntentBits, TextChannel, EmbedBuilder } = require('discord.js');
 const WebSocket = require('ws');
 const crypto = require('crypto'); // Import the crypto module to generate a hash
+const path = require('path');
+const fs = require('fs'); // Import the file system module
 
-    // Track processed event hashes to prevent duplicates
-    let processedEventIds = new Set();
+// File to store processed event hashes, Load and Save...
+const processedEventFile = path.join(__dirname, 'processedEvents.json');
 
-    // Function to generate a unique hash based on the message content
-    function generateHash(message) {
+let processedEventIds = new Set();
+
+function generateHash(message) {
     return crypto.createHash('sha1').update(message).digest('hex');
+}
+
+function loadProcessedEventIds() {
+    if (fs.existsSync(processedEventFile)) {
+        const data = fs.readFileSync(processedEventFile, 'utf8');
+        try {
+            const loadedIds = JSON.parse(data);
+            processedEventIds = new Set(loadedIds);
+            console.log(`[INFO] Loaded ${loadedIds.length} processed event IDs from file.`);
+        } catch (err) {
+            console.error('[ERROR] Failed to load processed event IDs. Invalid JSON. Resetting file.');
+            processedEventIds = new Set(); // Reset to an empty set
+            saveProcessedEventIds(); // Save an empty set to the file
+        }
     }
-    // Function to strip HTML tags and detect emoji/color based on key phrases in the message
+}
+
+function saveProcessedEventIds() {
+    fs.writeFileSync(processedEventFile, JSON.stringify(Array.from(processedEventIds)));
+    console.log('[INFO] Processed event IDs saved to file.');
+}
+
+// Function to strip HTML tags and detect emoji/color based on key phrases in the message
 function parseMessageForColor(html) {
     let color = '#5DCBF0'; // Default color
     let message = html;
@@ -30,7 +54,7 @@ function parseMessageForColor(html) {
     } else if (message.toLowerCase().includes('arrested')) {
         message = '🚔 ' + message; // Police car emoji
         color = '#5EB6D1'; // Blue for police-related actions
-    } else if (message.toLowerCase().includes('escort')) {
+    } else if (message.toLowerCase().includes('escorted')) {
         message = '🪝 ' + message; // Hook emoji
         color = '#5EB6D1'; // Blue for police-related actions
     } else if (message.toLowerCase().includes('released')) {
@@ -92,11 +116,10 @@ function parseMessageForColor(html) {
         color = '#E33232'; // Red for violent actions
     } else if (message.toLowerCase().includes('removed their bounty')) {
         message = '🗑️ ' + message; // Trashcan emoji
-        color = '#43BA55'; // Red for removal related actions
+        color = '#43BA55'; // Green for removal-related actions
     } else if (message.toLowerCase().includes('claimed')) {
         message = '💰 ' + message; // Moneybag emoji
         color = '#E33232'; // Red for violent actions
-        
     }
 
     // Return the clean message (stripped of HTML) and the selected color based on livefeed action...
@@ -108,6 +131,9 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBit
 client.once('ready', async () => {
     console.log(`Logged in as ${client.user.tag}!`);
 
+    // Load previously processed event IDs from the file
+    loadProcessedEventIds();
+
     // Replace with your actual channel ID
     const channelId = '1297385881295917088';
     const channel = client.channels.cache.get(channelId);
@@ -118,73 +144,75 @@ client.once('ready', async () => {
     }
 
     let websocket;
-const processedEventIds = new Set(); // To keep track of processed events
 
-function initSocket() {
-    // Establish WebSocket connection
-    websocket = new WebSocket('wss://ws.bobba.ca:8443/LiveFeed');
+    function initSocket() {
+        // Establish WebSocket connection
+        websocket = new WebSocket('wss://ws.bobba.ca:8443/LiveFeed');
 
-    websocket.onopen = () => {
-        const msg = {
-            EventName: "livefeed", 
-            Bypass: false, 
-            ExtraData: null, 
-            JSON: true
+        websocket.onopen = () => {
+            const msg = {
+                EventName: "livefeed", 
+                Bypass: false, 
+                ExtraData: null, 
+                JSON: true
+            };
+            websocket.send(JSON.stringify(msg));
+            console.log("[WEBSOCKET] Successfully established WebSocket connection...");
         };
-        websocket.send(JSON.stringify(msg));
-        console.log("[WEBSOCKET] Successfully established WebSocket connection...");
-    };
 
-    websocket.onmessage = async (event) => {
-        try {
-            const data = JSON.parse(event.data);
-            if (!data || data.length === 0) {
-                return;
-            }
-
-            for (const value of data) {
-                const { liveAction: message } = value; // Only show liveAction message
-
-                // Generate a unique hash based on the message content - this prevents the ws from sending it continuously...
-                const eventId = generateHash(message);
-
-                // Prevent reprocessing the same event...
-                if (processedEventIds.has(eventId)) {
-                    console.log(`[WEBSOCKET] Skipping already processed event with hash: ${eventId}`);
-                    continue;
+        websocket.onmessage = async (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (!data || data.length === 0) {
+                    return;
                 }
 
-                // Processed
-                processedEventIds.add(eventId);
+                for (const value of data) {
+                    const { liveAction: message } = value; // Only show liveAction message
 
-                // Parse the message to set color and clean it up
-                const { message: cleanMessage, color } = parseMessageForColor(message);
+                    // Generate a unique hash based on the message content - this prevents the ws from sending it continuously...
+                    const eventId = generateHash(message);
 
-                // Create the embed with the cleaned message and the set color
-                const embed = new EmbedBuilder()
-                    .setColor(color)
-                    .setDescription(cleanMessage);
+                    // Prevent reprocessing the same event...
+                    if (processedEventIds.has(eventId)) {
+                        console.log(`[WEBSOCKET] Skipping already processed event with hash: ${eventId}`);
+                        continue;
+                    }
 
-                // Send the embed to the specified Discord channel
-                await channel.send({ embeds: [embed] });
+                    // Processed
+                    processedEventIds.add(eventId);
+
+                    // Parse the message to set color and clean it up
+                    const { message: cleanMessage, color } = parseMessageForColor(message);
+
+                    // Create the embed with the cleaned message and the set color
+                    const embed = new EmbedBuilder()
+                        .setColor(color)
+                        .setDescription(cleanMessage);
+
+                    // Send the embed to the specified Discord channel
+                    await channel.send({ embeds: [embed] });
+
+                    // Save the processed event IDs to the file
+                    saveProcessedEventIds();
+                }
+            } catch (error) {
+                console.error("[WEBSOCKET] Error processing live feed message:", error);
             }
-        } catch (error) {
-            console.error("[WEBSOCKET] Error processing live feed message:", error);
-        }
-    };
+        };
 
-    websocket.onclose = () => {
-        console.error('[WEBSOCKET] Disconnected from WebSocket... Attempting to reconnect in 5 seconds...');
-        setTimeout(initSocket, 5000); // Reconnect after 5 seconds
-    };
+        websocket.onclose = () => {
+            console.error('[WEBSOCKET] Disconnected from WebSocket... Attempting to reconnect in 5 seconds...');
+            setTimeout(initSocket, 5000); // Reconnect after 5 seconds
+        };
 
-    websocket.onerror = (error) => {
-        console.error("[WEBSOCKET] WebSocket error occurred:", error.message);
-    };
-}
+        websocket.onerror = (error) => {
+            console.error("[WEBSOCKET] WebSocket error occurred:", error.message);
+        };
+    }
 
-// Initialize the WebSocket connection
-initSocket();
-});
+    // Initialize the WebSocket connection
+    initSocket();
+})
 // Replace with your bot's token
 client.login('NTg4NTQxNTI5NTIyNzAwMzAx.GXG-Pw.3Pua78SsdbYRgyRPsLKiZRb3jhPryGHQv4cAhQ');
