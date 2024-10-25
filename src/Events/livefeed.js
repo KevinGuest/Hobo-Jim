@@ -5,7 +5,7 @@ const path = require('path');
 const fs = require('fs'); // Import the file system module
 
 // File to store processed event hashes, Load and Save...
-const processedEventFile = path.join(__dirname, 'processedEvents.json');
+const processedEventFile = path.join(__dirname, '../Data/livefeedEvents.json');
 
 let processedEventIds = new Set();
 
