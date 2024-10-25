@@ -19,7 +19,7 @@ function loadProcessedEventIds() {
         try {
             const loadedIds = JSON.parse(data);
             processedEventIds = new Set(loadedIds);
-            console.log(`[INFO] Loaded ${loadedIds.length} processed event IDs from file.`);
+            console.log(`Live Feed - Loaded ${loadedIds.length} processed event IDs from file.`);
         } catch (err) {
             console.error('[ERROR] Failed to load processed event IDs. Invalid JSON. Resetting file.');
             processedEventIds = new Set(); // Reset to an empty set
@@ -128,7 +128,7 @@ function parseMessageForColor(html) {
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
 
 client.once('ready', async () => {
-    console.log(`Logged in as ${client.user.tag}!`);
+    console.log(`Live Feed has started!`);
 
     // Load previously processed event IDs from the file
     loadProcessedEventIds();
@@ -156,7 +156,8 @@ client.once('ready', async () => {
                 JSON: true
             };
             websocket.send(JSON.stringify(msg));
-            console.log("[WEBSOCKET] Successfully established WebSocket connection...");
+            // Uncomment to have connection logging
+            // console.log("[WEBSOCKET] Successfully established WebSocket connection...");
         };
 
         websocket.onmessage = async (event) => {
@@ -200,7 +201,8 @@ client.once('ready', async () => {
         };
 
         websocket.onclose = () => {
-            console.error('[WEBSOCKET] Disconnected from WebSocket... Attempting to reconnect in 5 seconds...');
+            // Uncomment to have connection logging
+            //console.error('[WEBSOCKET] Disconnected from WebSocket... Attempting to reconnect in 5 seconds...');
             setTimeout(initSocket, 5000); // Reconnect after 5 seconds
         };
 
