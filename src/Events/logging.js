@@ -15,36 +15,71 @@ client.once('ready', () => {
   console.log(`Logging has started!`);
 });
 
-// Event for logging deleted messages
+// Event for logging deleted messages with executor information
 client.on('messageDelete', async (message) => {
-    if (message.partial) {
-      try {
-        await message.fetch(); // Fetch full message for partial messages
-      } catch (error) {
-        console.error('Could not fetch deleted message:', error);
-        return;
-      }
+  if (message.partial) {
+    try {
+      await message.fetch(); // Fetch full message for partial messages
+    } catch (error) {
+      console.error('Could not fetch deleted message:', error);
+      return;
     }
-  
-    if (message.author.bot) return;
-  
-    const logChannel = message.guild.channels.cache.get(LOG_CHANNEL_ID);
-    if (!logChannel) return;
-  
-    const embed = new EmbedBuilder()
-      .setTitle('Message Deleted')
-      .setColor('#E74C3C') // Red color for deleted messages
-      .addFields(
-        { name: 'Author', value: `<@${message.author.id}>`, inline: true }, // Makes the author mentionable
-        { name: 'Channel', value: message.channel.toString(), inline: true }
-      )
-      .setDescription(message.content || '*(Message had no content)*')
-      .setFooter({ text: `Message ID: ${message.id}` })
-      .setTimestamp()
-      .setThumbnail(message.author.displayAvatarURL({ dynamic: true })); // Adds profile picture
-  
-    logChannel.send({ embeds: [embed] });
-  });  
+  }
+
+  if (message.author.bot) return;
+
+  const logChannel = message.guild.channels.cache.get(LOG_CHANNEL_ID);
+  if (!logChannel) return;
+
+  try {
+    // Wait for a short delay to ensure the audit log is updated
+    await new Promise(resolve => setTimeout(resolve, 1000)); // 1-second delay
+
+    // Fetch audit logs to find who deleted the message
+    const fetchedLogs = await message.guild.fetchAuditLogs({
+      limit: 1,
+      type: 72, // MESSAGE_DELETE type
+    });
+    
+    const deleteLog = fetchedLogs.entries.first();
+    
+    if (deleteLog && deleteLog.target.id === message.author.id) {
+      const { executor } = deleteLog;
+      
+      const embed = new EmbedBuilder()
+        .setTitle('Message Deleted')
+        .setColor('#E74C3C') // Red color for deleted messages
+        .addFields(
+          { name: 'Author', value: `<@${message.author.id}>`, inline: true },
+          { name: 'Deleted by', value: `<@${executor.id}>`, inline: true },
+          { name: 'Channel', value: message.channel.toString(), inline: true }
+        )
+        .setDescription(message.content || '*(Message had no content)*')
+        .setFooter({ text: `Message ID: ${message.id}` })
+        .setTimestamp()
+        .setThumbnail(message.author.displayAvatarURL({ dynamic: true })); // Adds profile picture
+      
+      logChannel.send({ embeds: [embed] });
+    } else {
+      // If no matching log entry is found, assume self-deletion
+      const embed = new EmbedBuilder()
+        .setTitle('Message Deleted')
+        .setColor('#E74C3C')
+        .addFields(
+          { name: 'Author', value: `<@${message.author.id}>`, inline: true },
+          { name: 'Channel', value: message.channel.toString(), inline: true }
+        )
+        .setDescription(message.content || '*(Message had no content)*')
+        .setFooter({ text: `Message ID: ${message.id}` })
+        .setTimestamp()
+        .setThumbnail(message.author.displayAvatarURL({ dynamic: true }));
+
+      logChannel.send({ embeds: [embed] });
+    }
+  } catch (error) {
+    console.error('Error fetching audit logs for message deletion:', error);
+  }
+});
 
 // Event for logging edited messages
 client.on('messageUpdate', async (oldMessage, newMessage) => {
@@ -84,21 +119,41 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
   const logChannel = newMember.guild.channels.cache.get(LOG_CHANNEL_ID);
   if (!logChannel) return;
 
+  // Check for nickname changes
   if (oldMember.nickname !== newMember.nickname) {
-    const embed = new EmbedBuilder()
-      .setTitle('Nickname Changed')
-      .setColor('#3498DB') // Blue color for name changes
-      .addFields(
-        { name: 'User', value: newMember.user.tag, inline: true },
-        { name: 'Old Nickname', value: oldMember.nickname || 'None', inline: true },
-        { name: 'New Nickname', value: newMember.nickname || 'None', inline: true }
-      )
-      .setTimestamp()
-      .setThumbnail(newMember.user.displayAvatarURL({ dynamic: true })); // User PFP
+    try {
+      // Fetch audit logs to find who changed the nickname
+      const fetchedLogs = await newMember.guild.fetchAuditLogs({
+        limit: 1,
+        type: 24, // MEMBER_UPDATE type
+      });
+      const nicknameLog = fetchedLogs.entries.first();
+      
+      // Check if the log entry is recent and matches the member whose nickname changed
+      const { executor, target, createdTimestamp } = nicknameLog;
+      const timeDifference = Date.now() - createdTimestamp;
 
-    logChannel.send({ embeds: [embed] });
+      if (target.id === newMember.id && timeDifference < 5000) { // Ensure log entry is recent (within 5 seconds)
+        const embed = new EmbedBuilder()
+          .setTitle('Nickname Changed')
+          .setColor('#3498DB') // Blue color for name changes
+          .addFields(
+            { name: 'User', value: newMember.user.tag, inline: true },
+            { name: 'Old Nickname', value: oldMember.nickname || 'None', inline: true },
+            { name: 'New Nickname', value: newMember.nickname || 'None', inline: true },
+            { name: 'Changed by', value: executor.tag || 'Unknown', inline: true }
+          )
+          .setTimestamp()
+          .setThumbnail(newMember.user.displayAvatarURL({ dynamic: true })); // User PFP
+
+        logChannel.send({ embeds: [embed] });
+      }
+    } catch (error) {
+      console.error('Error fetching audit logs for nickname change:', error);
+    }
   }
 
+  // Check for username changes (only user themselves can change username)
   if (oldMember.user.username !== newMember.user.username) {
     const embed = new EmbedBuilder()
       .setTitle('Username Changed')
