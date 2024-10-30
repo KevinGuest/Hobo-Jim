@@ -1,4 +1,4 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, PermissionsBitField } = require('discord.js');
 
 module.exports = {
   data: {
@@ -108,29 +108,39 @@ module.exports = {
     const humans = interaction.options.getBoolean('humans');
     const after = interaction.options.getString('after');
 
-    // Admin permission check
-    if (!interaction.member.permissions.has('ADMINISTRATOR')) {
+    // Check if user has administrator permissions
+    if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
       return interaction.reply({
         content: 'You do not have permission to use this command!',
         ephemeral: true,
       });
     }
 
-    if (amount < 1 || amount > 100) {
+    // Validate the count
+    if (!amount || amount < 1 || amount > 100) {
       return interaction.reply({
         content: 'Please provide a count between 1 and 100.',
         ephemeral: true,
       });
     }
 
-    // Fetch the messages to be deleted
+    // Fetch messages and apply filters
     let messages = await interaction.channel.messages.fetch({ limit: 100 });
+    messages = Array.from(messages.values()); // Convert the collection to an array
+
     if (after) {
-      const afterMessage = await interaction.channel.messages.fetch(after);
-      messages = messages.filter(msg => msg.createdTimestamp > afterMessage.createdTimestamp);
+      const afterMessage = await interaction.channel.messages.fetch(after).catch(() => null);
+      if (afterMessage) {
+        messages = messages.filter(msg => msg.createdTimestamp > afterMessage.createdTimestamp);
+      } else {
+        return interaction.reply({
+          content: 'Invalid message ID for "after" filter.',
+          ephemeral: true,
+        });
+      }
     }
 
-    // Apply filtering based on the provided options
+    // Apply all provided filters
     if (user) messages = messages.filter(msg => msg.author.id === user.id);
     if (matchText) messages = messages.filter(msg => msg.content.includes(matchText));
     if (notText) messages = messages.filter(msg => !msg.content.includes(notText));
@@ -138,7 +148,7 @@ module.exports = {
     if (endsWith) messages = messages.filter(msg => msg.content.endsWith(endsWith));
     if (links) messages = messages.filter(msg => /https?:\/\/\S+/.test(msg.content));
     if (invites) messages = messages.filter(msg => /(discord\.gg|discordapp\.com\/invite)\/\S+/.test(msg.content));
-    if (images) messages = messages.filter(msg => msg.attachments.size > 0 && msg.attachments.some(att => att.contentType.startsWith('image')));
+    if (images) messages = messages.filter(msg => msg.attachments.some(att => att.contentType && att.contentType.startsWith('image')));
     if (mentions) messages = messages.filter(msg => msg.mentions.users.size > 0 || msg.mentions.roles.size > 0);
     if (embeds) messages = messages.filter(msg => msg.embeds.length > 0);
     if (bots) messages = messages.filter(msg => msg.author.bot);
@@ -150,25 +160,24 @@ module.exports = {
     try {
       const deletedMessages = await interaction.channel.bulkDelete(messagesToDelete, true);
 
-      // Confirm deletion
+      // Confirmation message
       await interaction.reply({
         content: `✅ Successfully deleted ${deletedMessages.size} message(s).`,
         ephemeral: true,
       });
 
-      // Logging the action
-      const logChannelId = 'YOUR_LOG_CHANNEL_ID'; // Replace with your log channel ID
+      // Logging the purge action
+      const logChannelId = '1286176037398384702'; // Replace with your actual log channel ID
       const logChannel = interaction.guild.channels.cache.get(logChannelId);
-
       if (logChannel) {
         const embed = new EmbedBuilder()
           .setTitle('Messages Purged')
-          .setColor('#FF5733') // Orange for purge actions
+          .setColor('#FF5733')
           .addFields(
             { name: 'Channel', value: `<#${interaction.channel.id}>`, inline: true },
             { name: 'Messages Deleted', value: `${deletedMessages.size}`, inline: true },
             { name: 'Purged by', value: `<@${interaction.user.id}>`, inline: true },
-            { name: 'Filters Applied', value: `Count: ${amount}, User: ${user ? user.tag : 'None'}, ...`, inline: true }
+            { name: 'Filters Applied', value: `Count: ${amount}, User: ${user ? user.tag : 'None'}, Match: ${matchText || 'None'}, Not: ${notText || 'None'}`, inline: false }
           )
           .setTimestamp();
 
