@@ -18,7 +18,7 @@ module.exports.start = async (config) => {
   await require('./events.js').execute(client);
 
   // Set presence after the bot is ready
-  client.once('ready', () => {
+  client.once('dnd', () => {
     console.log(`Logged in as ${client.user.tag}!`);
 
     // Update presence with detailed activity information
