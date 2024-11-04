@@ -1,24 +1,32 @@
-const { EmbedBuilder } = require("discord.js");
+const { EmbedBuilder, PermissionsBitField } = require("discord.js");
 
 module.exports = {
   data: {
     name: "avatar",
-    description: "show your and other avatars",
+    description: "Show your and other users' avatars",
     dm_permissions: "0",
     options: [
       {
         name: "user",
-        description: "choose a user",
-        type: 6,
+        description: "Choose a user",
+        type: 6, // User type
         required: false,
       },
     ],
   },
   async execute(interaction) {
+    // Check if the user has "View Audit Log" permission
+    if (!interaction.member.permissions.has(PermissionsBitField.Flags.ViewAuditLog)) {
+      return interaction.reply({
+        content: "You need to be a Moderator to use this command.",
+        ephemeral: true,
+      });
+    }
+
     const user = interaction.options.getUser("user") || interaction.user;
 
     const image = user.avatarURL({
-      dinamic: true,
+      dynamic: true,
       format: "png",
       size: 4096,
     });
@@ -28,9 +36,7 @@ module.exports = {
       .setImage(image)
       .setFooter({
         text: `Requested by ${interaction.user.tag}`,
-        iconURL: interaction.user.avatarURL({
-          format: "png",
-        }),
+        iconURL: interaction.user.avatarURL({ format: "png" }),
       })
       .setColor("#00FFAA");
 

@@ -1,9 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 const { EmbedBuilder } = require('discord.js');
-
-// Path to store ignored channels data
 const IGNORED_CHANNELS_PATH = path.join(__dirname, '../../../src/data/ignoredChannels.json');
+const LOG_CHANNEL_ID = '1286176037398384702'; // The ID of your log channel
 
 // Function to safely load or initialize ignored channels
 function loadIgnoredChannels() {
@@ -16,6 +15,24 @@ function loadIgnoredChannels() {
     console.error('Error loading ignored channels:', error);
   }
   return {}; // Return an empty object if file read or parse fails
+}
+
+// Function to save ignored channels to file
+function saveIgnoredChannels(channels) {
+  try {
+    ensureDirectoryExists(IGNORED_CHANNELS_PATH);
+    fs.writeFileSync(IGNORED_CHANNELS_PATH, JSON.stringify(channels, null, 2));
+  } catch (error) {
+    console.error('Error saving ignored channels:', error);
+  }
+}
+
+// Ensure directory exists before saving
+function ensureDirectoryExists(filePath) {
+  const dir = path.dirname(filePath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
 }
 
 // Load or initialize ignored channels
@@ -38,7 +55,9 @@ module.exports = {
   async execute(interaction) {
     const targetChannel = interaction.options.getChannel('target');
 
-    // Check if the user has the required permissions
+    // Reload ignoredChannels to ensure it's up-to-date
+    ignoredChannels = loadIgnoredChannels();
+
     if (!interaction.member.permissions.has('MANAGE_CHANNELS')) {
       return interaction.reply({
         content: 'You do not have permission to use this command!',
@@ -62,7 +81,6 @@ module.exports = {
     // Remove the channel from ignored channels
     delete ignoredChannels[targetChannel.id];
 
-    // Confirmation message in an embed
     const embed = new EmbedBuilder()
       .setColor('#43BA55') // Green for success
       .setTitle('Channel Unignored')
@@ -74,6 +92,24 @@ module.exports = {
     });
 
     // Save the updated ignored channels list
-    fs.writeFileSync(IGNORED_CHANNELS_PATH, JSON.stringify(ignoredChannels, null, 2));
+    saveIgnoredChannels(ignoredChannels);
+
+    // Log the command usage in the #logs channel
+    const logChannel = interaction.guild.channels.cache.get(LOG_CHANNEL_ID);
+    if (logChannel) {
+      const logEmbed = new EmbedBuilder()
+        .setColor(0x3498db) // Blue color for log entries
+        .setTitle('Unignore Channel Command Used')
+        .addFields(
+          { name: 'Action', value: 'Enabled Commands', inline: true },
+          { name: 'Target Channel', value: `<#${targetChannel.id}>`, inline: true },
+          { name: 'Executed By', value: `<@${interaction.user.id}>`, inline: true },
+        )
+        .setTimestamp();
+
+      logChannel.send({ embeds: [logEmbed] });
+    } else {
+      console.error(`Log channel with ID ${LOG_CHANNEL_ID} not found.`);
+    }
   },
 };

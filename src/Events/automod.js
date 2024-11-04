@@ -146,7 +146,7 @@ client.on('interactionCreate', async interaction => {
     } else if (action === 'ignore') {
       // Update the embed with status as "Ignored by" and the moderator's name
       updatedEmbed = EmbedBuilder.from(reviewMessage.embeds[0])
-        .spliceFields(0, 1, { name: 'Status', value: `Ignored by: <${interaction.user.id}>`, inline: true });
+        .spliceFields(0, 1, { name: 'Status', value: `Ignored by: <@${interaction.user.id}>`, inline: true });
 
       await reviewMessage.edit({ embeds: [updatedEmbed], components: [] });
     }
