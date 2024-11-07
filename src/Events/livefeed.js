@@ -120,6 +120,22 @@ function parseMessageForColor(html) {
         message = '💰 ' + message; // Moneybag emoji
         color = '#E33232'; // Red for violent actions
     }
+      else if (message.toLowerCase().includes('waste')) {
+        message = '♻️ ' + message; // Adds recycling emoji
+        color = '#43BA55'; // Sets color to green for waste/removal-related messages
+    }
+      else if (message.toLowerCase().includes('factory')) {
+        message = '🏭 ' + message; // Adds factory emoji
+        color = '#5EB6D1'; // Blue for factory-related actions
+    }
+      else if (message.toLowerCase().includes('knocked out')) {
+        message = '🥊 ' + message; // Adds boxing glove emoji
+        color = '#E33232'; // Red for violent actions
+    }
+      else if (message.toLowerCase().includes('eliminated')) {
+        message = '⚔️ ' + message; // Adds crossed swords emoji
+        color = '#E33232'; // Red for violent actions
+    }
 
     // Return the clean message (stripped of HTML) and the selected color based on livefeed action...
     return { message: message.trim(), color };
