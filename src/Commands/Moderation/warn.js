@@ -1,9 +1,26 @@
 const { EmbedBuilder } = require('discord.js');
 
+const rules = [
+  "**Server Rules & Information**\n*Last updated: September 25th, 2024*",
+  "1. **No spamming**: Avoid spamming text channels, including command spamming.",
+  "2. **No trolling**: Trolling and disruptive behavior is not allowed.",
+  "3. **No advertising**: Promoting other servers or sites not affiliated with BobbaRP is prohibited.",
+  "4. **Respectful interactions**: Arguments are allowed, but drama, racism, homophobia, and hate speech are strictly prohibited.",
+  "5. **Privacy respect**: Do not share others' personal information, including IP addresses.",
+  "6. **No doxing or DDoS talk**: Discussing doxing or DDoS will result in an immediate ban without warning.",
+  "7. **Nicknames**: Avoid setting disruptive nicknames; non-compliance may result in losing nickname privileges.",
+  "8. **No NSFW content**: Posting NSFW images in any channel outside of its designated #nsfw channel, is forbidden.",
+  "9. **No posting personal information or photos of others**: Posting any personal information or images of another person is strictly prohibited.",
+  "10. **Third-party program usage**: Using third-party programs for unfair advantage is not allowed. *XMouse is an exception.*",
+  "11. **Macros policy**: Simple macros (BMT/AHK) are allowed, but in-game macros are preferred.",
+  "12. **Alts**: Only one alt account may be logged in at a time. Transferring items or currency between alts is prohibited.",
+  "**Consequences**\nViolations may result in mutes, kicks, bans, or other punishments, including IP bans or stat/economy resets."
+];
+
 module.exports = {
   data: {
     name: 'warn',
-    description: 'Issue a warning to a user.',
+    description: 'Issue a warning to a user based on a rule violation.',
     options: [
       {
         name: 'target',
@@ -12,8 +29,14 @@ module.exports = {
         required: true,
       },
       {
+        name: 'rule_number',
+        description: 'The rule number violated',
+        type: 4, // 4 is the type for INTEGER
+        required: true,
+      },
+      {
         name: 'reason',
-        description: 'Reason for warning the member',
+        description: 'Additional reason for warning the member',
         type: 3, // 3 is the type for STRING
         required: false,
       },
@@ -23,7 +46,6 @@ module.exports = {
   async execute(interaction) {
     const authorizedRoles = ['Discord Moderator', 'Bobba Staff', 'Developers', 'Administrators'];
     const memberRoles = interaction.member.roles.cache;
-
     const hasRole = authorizedRoles.some(role => memberRoles.some(r => r.name === role));
 
     if (!hasRole) {
@@ -34,16 +56,18 @@ module.exports = {
     }
 
     const targetUser = interaction.options.getUser('target');
-    if (!targetUser) {
+    const ruleNumber = interaction.options.getInteger('rule_number');
+    const reason = interaction.options.getString('reason') || 'No additional reason provided';
+
+    // Validate rule number
+    if (ruleNumber < 1 || ruleNumber > rules.length) {
       return interaction.reply({
-        content: 'The specified user could not be found. Please try again.',
+        content: `Invalid rule number. Please specify a rule number between 1 and ${rules.length}.`,
         ephemeral: true,
       });
     }
 
-    const reason = interaction.options.getString('reason') || 'No reason provided';
     const targetMember = interaction.guild.members.cache.get(targetUser.id);
-
     if (!targetMember) {
       return interaction.reply({
         content: 'The specified user is not in this server!',
@@ -58,12 +82,17 @@ module.exports = {
       });
     }
 
+    // Get the rule text based on rule number
+    const ruleText = rules[ruleNumber];
+
     try {
+      // Send a private warning reply to the user
       await interaction.reply({
-        content: `⚠️ <@${targetMember.id}> has been warned. Reason: ${reason}`,
-        ephemeral: true,
+        content: `⚠️ <@${targetMember.id}> has been warned for violating rule #${ruleNumber}. Reason: ${reason}\n**Rule Text:** ${ruleText}`,
+        ephemeral: false,
       });
 
+      // Log the warning in the specified log channel
       const logChannelId = '1286176037398384702'; // Replace with your log channel ID
       const logChannel = interaction.guild.channels.cache.get(logChannelId);
 
@@ -74,13 +103,14 @@ module.exports = {
           .addFields(
             { name: 'User', value: `<@${targetMember.id}>`, inline: true },
             { name: 'Warned by', value: `<@${interaction.user.id}>`, inline: true },
-            { name: 'Reason', value: reason, inline: true },
+            { name: 'Rule Violated', value: `#${ruleNumber} - ${ruleText}`, inline: false },
+            { name: 'Reason', value: reason, inline: false },
             { name: 'Time of Warning', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: true }
           )
           .setThumbnail(targetMember.user.displayAvatarURL({ dynamic: true }))
           .setTimestamp();
 
-        logChannel.send({ embeds: [embed] });
+        await logChannel.send({ embeds: [embed] });
       }
     } catch (error) {
       console.error(`Error warning user: ${error}`);
