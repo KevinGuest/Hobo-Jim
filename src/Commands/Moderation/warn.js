@@ -86,18 +86,26 @@ module.exports = {
     const ruleText = rules[ruleNumber];
 
     try {
-      // Send a private warning reply to the user
-      await interaction.reply({
-        content: `⚠️ <@${targetMember.id}> has been warned for violating rule #${ruleNumber}. Reason: ${reason}\n**Rule Text:** ${ruleText}`,
-        ephemeral: false,
-      });
+      // Send a warning notification to the user in an embed
+      const userWarningEmbed = new EmbedBuilder()
+        .setColor('#FFA500') // Orange for warnings
+        .setTitle('Warning Issued')
+        .setDescription(`⚠️ <@${targetMember.id}> has been warned for violating rule #${ruleNumber}.`)
+        .addFields(
+          { name: 'Reason', value: reason, inline: false },
+          { name: `Rule Text: ${ruleNumber}`, value: ruleText, inline: false }
+        )
+        .setFooter({ text: 'Please adhere to the server rules to avoid further action.' })
+        .setTimestamp();
+
+      await interaction.reply({ embeds: [userWarningEmbed], ephemeral: false });
 
       // Log the warning in the specified log channel
       const logChannelId = '1286176037398384702'; // Replace with your log channel ID
       const logChannel = interaction.guild.channels.cache.get(logChannelId);
 
       if (logChannel) {
-        const embed = new EmbedBuilder()
+        const logEmbed = new EmbedBuilder()
           .setTitle('User Warned')
           .setColor('#FFA500')
           .addFields(
@@ -110,7 +118,7 @@ module.exports = {
           .setThumbnail(targetMember.user.displayAvatarURL({ dynamic: true }))
           .setTimestamp();
 
-        await logChannel.send({ embeds: [embed] });
+        await logChannel.send({ embeds: [logEmbed] });
       }
     } catch (error) {
       console.error(`Error warning user: ${error}`);

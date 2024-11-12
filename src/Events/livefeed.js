@@ -139,6 +139,14 @@ function parseMessageForColor(html) {
         message = '⚔️ ' + message; // Adds crossed swords emoji
         color = '#E33232'; // Red for violent actions
     }
+    else if (message.toLowerCase().includes('radioactivity')) {
+        message = '☢️ ' + message; // Adds crossed swords emoji
+        color = '#E33232'; // Red for violent actions
+    }
+    else if (message.toLowerCase().includes('meltdown')) {
+        message = '🛑 ' + message; // Adds crossed swords emoji
+        color = '#43BA55'; // Green for good actions
+    }
 
     // Return the clean message (stripped of HTML) and the selected color based on livefeed action...
     return { message: message.trim(), color };

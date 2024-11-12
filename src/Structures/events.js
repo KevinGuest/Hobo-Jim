@@ -21,12 +21,12 @@ module.exports = {
           // Check if the command is in an ignored channel
           const isChannelIgnored = ignoredChannels[interaction.channel.id];
 
-          // Check if the user has permissions to bypass the restriction
-          const hasBypassPermissions = interaction.member.permissions.has(
-            PermissionsBitField.Flags.Administrator |
-            PermissionsBitField.Flags.BanMembers |
+          // Check if the user has any of the specified permissions to bypass the restriction
+          const hasBypassPermissions = [
+            PermissionsBitField.Flags.Administrator,
+            PermissionsBitField.Flags.BanMembers,
             PermissionsBitField.Flags.KickMembers
-          );
+          ].some(permission => interaction.member.permissions.has(permission));
 
           // If the channel is ignored and the user does not have bypass permissions, block the command
           if (isChannelIgnored && !hasBypassPermissions) {
@@ -41,7 +41,7 @@ module.exports = {
             });
           }
 
-          // Proceed to execute the command if not blocked
+          // Proceed if not blocked
           const command = client.commands.get(interaction.commandName);
           if (!command) return;
 
@@ -50,25 +50,20 @@ module.exports = {
           } catch (error) {
             console.error(error);
 
-            // Check if the interaction has already been replied to, to avoid double replies
+            // Check if the int has already been replied to, to avoid dupes...
+            const errorEmbed = new EmbedBuilder()
+              .setColor('#E74C3C') // Red for errors
+              .setTitle('Command Execution Error')
+              .setDescription('❌ There was an error executing that command. Please try again.');
+
             if (interaction.replied || interaction.deferred) {
               await interaction.followUp({
-                embeds: [
-                  new EmbedBuilder()
-                    .setColor('#E74C3C') // Red for errors
-                    .setTitle('Command Execution Error')
-                    .setDescription('❌ There was an error executing that command. Please try again.')
-                ],
+                embeds: [errorEmbed],
                 ephemeral: true,
               });
             } else {
               await interaction.reply({
-                embeds: [
-                  new EmbedBuilder()
-                    .setColor('#E74C3C') // Red for errors
-                    .setTitle('Command Execution Error')
-                    .setDescription('❌ There was an error executing that command. Please try again.')
-                ],
+                embeds: [errorEmbed],
                 ephemeral: true,
               });
             }
