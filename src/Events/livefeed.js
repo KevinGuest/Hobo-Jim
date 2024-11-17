@@ -131,7 +131,7 @@ function parseMessageForColor(html) {
         message = '🏭 ' + message; // Adds factory emoji
         color = '#5EB6D1'; // Blue for factory-related actions
     }
-      else if (message.toLowerCase().includes('knocked out')) {
+      else if (message.toLowerCase().includes('knocked')) {
         message = '🥊 ' + message; // Adds boxing glove emoji
         color = '#E33232'; // Red for violent actions
     }
