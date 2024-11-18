@@ -42,7 +42,7 @@ module.exports = {
           '- **Turf by Strip Club (9):** Taxi to 4 and go up  \n' +
           '- **Turf by Hospital (8):** Taxi to 8 and then go down  \n' +
           '- **Turf by Church (7):** Taxi to 5 and go down  \n' +
-          '- **Turf by Court/Salon (24):** Taxi to 10 and go up'
+          '- **Turf by Court/Salon (24):** Taxi to 40 and go up'
         )
         .setFooter({ text: 'Tamara Maps', iconURL: avatarURL });
     } else if (type === 'corporations') {
