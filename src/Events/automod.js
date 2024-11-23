@@ -102,6 +102,7 @@ async function sendToReviewChannel(message, reason) {
     );
 
   const sentMessage = await reviewChannel.send({
+    content: `<@&1297941002924855337>`,
     embeds: [embed],
     components: [actionRow]
   });
