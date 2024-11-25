@@ -1,6 +1,6 @@
 const { readdirSync } = require("node:fs");
 const { PermissionsBitField, EmbedBuilder } = require("discord.js");
-const { getIgnoredChannels } = require("../data/ignoredChannels");
+const { getIgnoredChannels } = require("../Data/ignoredChannels");
 
 module.exports = {
   async execute(client) {

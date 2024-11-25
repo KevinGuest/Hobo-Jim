@@ -12,7 +12,7 @@ const client = new Client({
 
 // Initialize Google Generative AI with the API key
 const genAI = new GoogleGenerativeAI('AIzaSyACAiM7LJElkuaeYNhzQgBz4_KBFlEBK4s');
-const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
+const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
 const REVIEW_CHANNEL_ID = '1297419386654556200';
 const JAIL_ROLE_ID = '1308685225152352328';
@@ -137,7 +137,7 @@ client.on('messageCreate', async (message) => {
 
   // 4. Use Google Gemini for nuanced or context-sensitive content moderation
   try {
-    const prompt = `You are a content moderator. Only flag messages for deletion if they contain clear hate speech, violent threats, racial slurs, or serious malicious content. Ignore non-threatening gaming terms and RPG language (e.g., 'level up', 'gym', 'strength').\n\nMessage: "${message.content}"\n\nShould this message be flagged? Respond with "Yes" or "No".`;
+    const prompt = `You are a content moderator. Only flag messages for deletion if they contain clear complete addresses matching one in the real world, hate speech, violent threats, racial slurs, or serious malicious content. Ignore non-threatening gaming terms and RPG language (e.g., 'level up', 'gym', 'strength', 'kill', 'hit', 'rob', 'steal', 'hospital', 'streets').\n\nMessage: "${message.content}"\n\nShould this message be flagged? Respond with "Yes" or "No".`;
 
     const result = await model.generateContent(prompt);
     const response = result.response.text().trim().toLowerCase();
