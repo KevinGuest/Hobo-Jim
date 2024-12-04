@@ -119,7 +119,7 @@ client.on('messageCreate', async (message) => {
 
   // 1. Check for common address patterns
   if (addressPattern.test(message.content)) {
-    await sendToReviewChannel(message, 'Personal Information (Address) Detected');
+    await sendToReviewChannel(message, 'Personal Information Detected');
     return;
   }
 
@@ -137,7 +137,7 @@ client.on('messageCreate', async (message) => {
 
   // 4. Use Google Gemini for nuanced or context-sensitive content moderation
   try {
-    const prompt = `You are a content moderator. Only flag messages for deletion if they contain clear complete addresses matching one in the real world, hate speech, violent threats, racial slurs, or serious malicious content. Ignore non-threatening gaming terms and RPG language (e.g., 'level up', 'gym', 'strength', 'kill', 'hit', 'rob', 'steal', 'hospital', 'streets').\n\nMessage: "${message.content}"\n\nShould this message be flagged? Respond with "Yes" or "No".`;
+    const prompt = `You are a content moderator. Only flag messages for deletion if they contain clear complete addresses matching one in the real world, hate speech, violent threats, racial slurs, or serious malicious content, exclude profanity. Ignore non-threatening gaming terms and RPG language (e.g., 'level up', 'gym', 'strength', 'kill', 'hit', 'rob', 'steal', 'hospital', 'streets').\n\nMessage: "${message.content}"\n\nShould this message be flagged? Respond with "Yes" or "No".`;
 
     const result = await model.generateContent(prompt);
     const response = result.response.text().trim().toLowerCase();
