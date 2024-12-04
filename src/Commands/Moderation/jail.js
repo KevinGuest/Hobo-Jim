@@ -79,6 +79,16 @@ module.exports = {
       return interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
+    // Role check
+    if (guildMember.roles.highest.position >= interaction.member.roles.highest.position) {
+      const embed = new EmbedBuilder()
+        .setTitle('Role Error')
+        .setDescription('You cannot jail a user with a role equal to or higher than yours.')
+        .setColor('#E33232')
+        .setTimestamp();
+      return interaction.reply({ embeds: [embed], ephemeral: true });
+    }
+
     // Check if the user is already jailed
     if (guildMember.roles.cache.has(jailRoleId)) {
       const embed = new EmbedBuilder()
@@ -120,7 +130,7 @@ module.exports = {
       const logChannel = interaction.guild.channels.cache.get(logChannelId);
       if (logChannel) {
         const logEmbed = new EmbedBuilder()
-          .setTitle('🔒 User Jailed)')
+          .setTitle('🔒 User Jailed')
           .setColor('#E67E22')
           .addFields(
             { name: 'Jailed User', value: `<@${user.id}>`, inline: true },

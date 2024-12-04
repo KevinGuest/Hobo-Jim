@@ -15,7 +15,7 @@ module.exports = {
     }
 
     const rules = [
-      "**Server Rules & Information**\n*Last updated: November 22nd, 2024*",
+      "**Server Rules & Information**\n*Last updated: November 30th, 2024*",
       "1. **No spamming**: Avoid spamming text channels, including command spamming.",
       "2. **No trolling**: Trolling and disruptive behavior is not allowed.",
       "3. **No advertising**: Promoting other servers or sites not affiliated with BobbaRP is prohibited.",
