@@ -277,7 +277,83 @@ client.on('guildMemberRemove', async (member) => {
       console.error('Error fetching audit logs or processing member leave:', error);
     }
   });
-  
+
+  // Event for logging unbans
+client.on('guildBanRemove', async (ban) => {
+  try {
+    const logChannel = ban.guild.channels.cache.get(LOG_CHANNEL_ID);
+    if (!logChannel) {
+      console.error(`Log channel with ID ${LOG_CHANNEL_ID} not found.`);
+      return;
+    }
+
+    // Fetch audit logs to find who unbanned the user
+    const fetchedLogs = await ban.guild.fetchAuditLogs({
+      limit: 1,
+      type: 23, // MEMBER_BAN_REMOVE type
+    });
+
+    const unbanLog = fetchedLogs.entries.first();
+
+    if (!unbanLog) {
+      console.log('No unban log found. This might be a manual unban or missing logs.');
+      return;
+    }
+
+    const { executor, target, createdTimestamp } = unbanLog;
+
+    // Check if the unban in the audit log matches the user that was unbanned
+    if (target.id !== ban.user.id) {
+      console.log(`Unban log for ${ban.user.tag} did not match the user in audit logs.`);
+      return;
+    }
+
+    // Create the embed for the unban event
+    const embed = new EmbedBuilder()
+      .setTitle('User Unbanned')
+      .setColor('#43BA55')
+      .addFields(
+        { name: 'User', value: `<@${ban.user.id}>`, inline: true }, // Make the unbanned user mentionable
+        { name: 'Unbanned by', value: `<@${executor.id}>`, inline: true }, // Make the executor mentionable
+        { name: 'Time of Unban', value: `<t:${Math.floor(createdTimestamp / 1000)}:F>`, inline: true } // Timestamp for when the unban occurred
+      )
+      .setTimestamp() // This will show the current time of logging
+      .setThumbnail(ban.user.displayAvatarURL({ dynamic: true })); // User's profile picture
+
+    // Send the log to the channel
+    logChannel.send({ embeds: [embed] });
+    console.log('Unban log sent to the channel.');
+  } catch (error) {
+    console.error('Error logging the unban event:', error);
+  }
+});
+
+// Event for logging timeout expiration
+client.on('guildMemberUpdate', async (oldMember, newMember) => {
+  const logChannel = newMember.guild.channels.cache.get(LOG_CHANNEL_ID);
+  if (!logChannel) return;
+
+  // Check if the member's timeout has ended
+  const oldTimeout = oldMember.communicationDisabledUntilTimestamp;
+  const newTimeout = newMember.communicationDisabledUntilTimestamp;
+
+  // If the old timeout existed and the new one does not, the timeout has expired
+  if (oldTimeout && !newTimeout) {
+    const embed = new EmbedBuilder()
+      .setTitle('Timeout Expired')
+      .setColor('#43BA55') // Green color for timeout expiration
+      .addFields(
+        { name: 'User', value: `<@${newMember.id}>`, inline: true }, // Mention the user
+        { name: 'Timeout Expired At', value: `<t:${Math.floor(oldTimeout / 1000)}:F>`, inline: true } // Timestamp for when the timeout ended
+      )
+      .setTimestamp()
+      .setThumbnail(newMember.user.displayAvatarURL({ dynamic: true })); // User's profile picture
+
+    logChannel.send({ embeds: [embed] });
+    console.log(`Timeout expired for ${newMember.user.tag}`);
+  }
+});
+
 // Event for logging new members joining the server
 client.on('guildMemberAdd', async (member) => {
     const logChannel = member.guild.channels.cache.get(LOG_CHANNEL_ID);
