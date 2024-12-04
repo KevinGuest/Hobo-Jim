@@ -37,115 +37,133 @@ function generateHash(message) {
 
 // Function to strip HTML tags and detect emoji/color based on key phrases in the message
 function parseMessageForColor(html) {
-    let color = '#5DCBF0'; // Default color
+    let color = '#5DCBF0';
     let message = html;
 
     // Strip any remaining HTML tags
     message = message.replace(/<\/?[^>]+(>|$)/g, '');
 
+     // List of keywords to ignore
+     const ignoreKeywords = [
+        'a game of brawl',
+        'a game of team brawl',
+        'a game of scavenger',
+        'a game of landmines',
+    ];
+
+    for (const keyword of ignoreKeywords) {
+        if (message.toLowerCase().includes(keyword)) {
+            return null;
+        }
+    }
+
     // Add emoji and set color based on key phrases (individual checks for each)
     if (message.toLowerCase().includes('murdered')) {
-        message = '🔪 ' + message; // Knife emoji
-        color = '#E33232'; // Red for violent actions
+        message = '🔪 ' + message;
+        color = '#E33232';
     } else if (message.toLowerCase().includes('suicide')) {
-        message = '☠️ ' + message; // Skull emoji
-        color = '#E33232'; // Red for violent actions
+        message = '☠️ ' + message;
+        color = '#E33232';
     } else if (message.toLowerCase().includes('guilty')) {
-        message = '⚖️ ' + message; // Scales emoji (Justice)
-        color = '#E33232'; // Red for guilty actions
+        message = '⚖️ ' + message;
+        color = '#E33232';
     } else if (message.toLowerCase().includes('arrested')) {
-        message = '🚔 ' + message; // Police car emoji
-        color = '#5EB6D1'; // Blue for police-related actions
+        message = '🚔 ' + message;
+        color = '#5EB6D1';
     } else if (message.toLowerCase().includes('escorted')) {
-        message = '🪝 ' + message; // Hook emoji
-        color = '#5EB6D1'; // Blue for police-related actions
+        message = '🪝 ' + message;
+        color = '#5EB6D1';
     } else if (message.toLowerCase().includes('released')) {
-        message = '🕊️ ' + message; // Dove emoji
-        color = '#5EB6D1'; // Blue for police-related actions
+        message = '🕊️ ' + message;
+        color = '#5EB6D1'; 
     } else if (message.toLowerCase().includes('evaded')) {
-        message = '🏃‍♂️ ' + message; // Running emoji
-        color = '#5EB6D1'; // Blue for police-related actions
+        message = '🏃‍♂️ ' + message;
+        color = '#5EB6D1'; 
     } else if (message.toLowerCase().includes('ticketed')) {
-        message = '🎫 ' + message; // Ticket emoji
-        color = '#5EB6D1'; // Blue for police-related actions
+        message = '🎫 ' + message;
+        color = '#5EB6D1'; 
     } else if (message.toLowerCase().includes('pardoned')) {
-        message = '🎉 ' + message; // Party emoji
-        color = '#5EB6D1'; // Blue for police-related actions
+        message = '🎉 ' + message;
+        color = '#5EB6D1'; 
     } else if (message.toLowerCase().includes('robbed')) {
-        message = '🦹‍♂️ ' + message; // Robber emoji
-        color = '#5EB6D1'; // Blue for police-related actions
+        message = '🦹‍♂️ ' + message;
+        color = '#5EB6D1'; 
     } else if (message.toLowerCase().includes('blacklisted')) {
-        message = '⛔ ' + message; // No entry emoji
-        color = '#000000'; // Black for negative actions
+        message = '⛔ ' + message;
+        color = '#000000'; 
     } else if (message.toLowerCase().includes('divorced')) {
-        message = '💔 ' + message; // Broken heart emoji
-        color = '#000000'; // Black for negative actions
+        message = '💔 ' + message;
+        color = '#000000'; 
     } else if (message.toLowerCase().includes('married')) {
-        message = '💍 ' + message; // Rings emoji
-        color = '#D3D3D3'; // Softer white for marriage
+        message = '💍 ' + message;
+        color = '#D3D3D3';
     } else if (message.toLowerCase().includes('innocent')) {
-        message = '🕊️ ' + message; // Dove emoji
-        color = '#D3D3D3'; // Softer white for innocent actions
+        message = '🕊️ ' + message;
+        color = '#D3D3D3'; 
     } else if (message.toLowerCase().includes('hired')) {
-        message = '📝 ' + message; // Document emoji
-        color = '#43BA55'; // Green for work-related actions
+        message = '📝 ' + message;
+        color = '#43BA55'; 
     } else if (message.toLowerCase().includes('fired')) {
-        message = '💼 ' + message; // Briefcase emoji for fired
-        color = '#E33232'; // Red for this work-related action
+        message = '💼 ' + message;
+        color = '#E33232';
     } else if (message.toLowerCase().includes('quit')) {
-        message = '🚪 ' + message; // Door emoji
-        color = '#E33232'; // Red for this work-related action
+        message = '🚪 ' + message;
+        color = '#E33232'; 
     } else if (message.toLowerCase().includes('promoted')) {
-        message = '🎉 ' + message; // Party popper emoji for promotion
-        color = '#43BA55'; // Green for work-related actions
+        message = '🎉 ' + message;
+        color = '#43BA55'; 
     } else if (message.toLowerCase().includes('demoted')) {
-        message = '😓 ' + message; // Grimacing face emoji for demotion
-        color = '#43BA55'; // Green for demotion-related actions
+        message = '😓 ' + message;
+        color = '#43BA55';
     } else if (message.toLowerCase().includes('won')) {
-        message = '🏆 ' + message; // Trophy emoji for winning
-        color = '#D9CC43'; // Gold for winning actions
+        message = '🏆 ' + message;
+        color = '#D9CC43';
     } else if (message.toLowerCase().includes('beat')) {
-        message = '🏆 ' + message; // Trophy emoji for beating someone
-        color = '#D9CC43'; // Gold for winning actions
+        message = '🏆 ' + message;
+        color = '#D9CC43';
     } else if (message.toLowerCase().includes('blew up') || message.toLowerCase().includes('blown up')) {
-        message = '💣 ' + message; // Bomb emoji for explosions
-        color = '#E33232'; // Red for violent actions
+        message = '💣 ' + message;
+        color = '#E33232';
     } else if (message.toLowerCase().includes('home')) {
-        message = '🏠 ' + message; // House emoji
-        color = '#43BA55'; // Green for work-related actions
+        message = '🏠 ' + message;
+        color = '#43BA55'; 
     } else if (message.toLowerCase().includes('placed a bounty')) {
-        message = '🎯 ' + message; // Target emoji
-        color = '#E33232'; // Red for violent actions
+        message = '🎯 ' + message;
+        color = '#E33232';
     } else if (message.toLowerCase().includes('removed their bounty')) {
-        message = '🗑️ ' + message; // Trashcan emoji
-        color = '#43BA55'; // Green for removal-related actions
+        message = '🗑️ ' + message;
+        color = '#43BA55';
     } else if (message.toLowerCase().includes('claimed')) {
-        message = '💰 ' + message; // Moneybag emoji
-        color = '#E33232'; // Red for violent actions
+        message = '💰 ' + message;
+        color = '#E33232';
     }
       else if (message.toLowerCase().includes('waste')) {
-        message = '♻️ ' + message; // Adds recycling emoji
-        color = '#43BA55'; // Sets color to green for waste/removal-related messages
+        message = '♻️ ' + message;
+        color = '#43BA55';
     }
       else if (message.toLowerCase().includes('factory')) {
-        message = '🏭 ' + message; // Adds factory emoji
-        color = '#5EB6D1'; // Blue for factory-related actions
+        message = '🏭 ' + message;
+        color = '#5EB6D1';
     }
       else if (message.toLowerCase().includes('knocked')) {
-        message = '🥊 ' + message; // Adds boxing glove emoji
-        color = '#E33232'; // Red for violent actions
+        message = '🥊 ' + message;
+        color = '#E33232';
     }
       else if (message.toLowerCase().includes('eliminated')) {
-        message = '⚔️ ' + message; // Adds crossed swords emoji
-        color = '#E33232'; // Red for violent actions
+        message = '⚔️ ' + message;
+        color = '#E33232';
     }
     else if (message.toLowerCase().includes('radioactivity')) {
-        message = '☢️ ' + message; // Adds crossed swords emoji
-        color = '#E33232'; // Red for violent actions
+        message = '☢️ ' + message;
+        color = '#E33232';
     }
     else if (message.toLowerCase().includes('meltdown')) {
-        message = '🛑 ' + message; // Adds crossed swords emoji
-        color = '#43BA55'; // Green for good actions
+        message = '🛑 ' + message;
+        color = '#43BA55';
+    }
+    else if (message.toLowerCase().includes('hospital')) {
+        message = '🚑 ' + message;
+        color = '#43BA55';
     }
 
     // Return the clean message (stripped of HTML) and the selected color based on livefeed action...
@@ -218,5 +236,4 @@ client.once('ready', async () => {
     initSocket();
 });
 
-// Replace with your bot's token
 client.login('NTg4NTQxNTI5NTIyNzAwMzAx.GXG-Pw.3Pua78SsdbYRgyRPsLKiZRb3jhPryGHQv4cAhQ');
