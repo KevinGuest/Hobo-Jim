@@ -137,7 +137,7 @@ function parseMessageForColor(html) {
         message = '💰 ' + message;
         color = '#E33232';
     }
-      else if (message.toLowerCase().includes('waste')) {
+      else if (message.toLowerCase().includes('sanitation')) {
         message = '♻️ ' + message;
         color = '#43BA55';
     }
