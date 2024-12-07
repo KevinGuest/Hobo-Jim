@@ -10,10 +10,7 @@ const client = new Client({
 });
 
 const LOG_CHANNEL_ID = '1286176037398384702'; // Replace with your log channel ID
-
-client.once('ready', () => {
-  console.log(`Logging has started!`);
-});
+const IGNORED_CHANNEL_ID = '1313320732003926066'; // Staff Channel ID to ignore
 
 // Event for logging deleted messages with executor information
 client.on('messageDelete', async (message) => {
@@ -27,6 +24,9 @@ client.on('messageDelete', async (message) => {
   }
 
   if (message.author.bot) return;
+
+  // Ignore the specified channel
+  if (message.channel.id === IGNORED_CHANNEL_ID) return;
 
   const logChannel = message.guild.channels.cache.get(LOG_CHANNEL_ID);
   if (!logChannel) return;
@@ -83,36 +83,38 @@ client.on('messageDelete', async (message) => {
 
 // Event for logging edited messages
 client.on('messageUpdate', async (oldMessage, newMessage) => {
-    if (oldMessage.partial || newMessage.partial) {
-      try {
-        await oldMessage.fetch();
-        await newMessage.fetch();
-      } catch (error) {
-        console.error('Could not fetch partial messages:', error);
-        return;
-      }
+  if (oldMessage.partial || newMessage.partial) {
+    try {
+      await oldMessage.fetch();
+      await newMessage.fetch();
+    } catch (error) {
+      console.error('Could not fetch partial messages:', error);
+      return;
     }
-  
-    if (oldMessage.author.bot) return;
-  
-    const logChannel = newMessage.guild.channels.cache.get(LOG_CHANNEL_ID);
-    if (!logChannel) return;
-  
-    const embed = new EmbedBuilder()
-      .setTitle('Message Edited')
-      .setColor('#F1C40F') // Yellow color for edited messages
-      .addFields(
-        { name: 'Author', value: `<@${oldMessage.author.id}>`, inline: true }, // Makes the author mentionable
-        { name: 'Channel', value: oldMessage.channel.toString(), inline: true }
-      )
-      .setDescription(`**Before:**\n${oldMessage.content || '*(No Content)*'}\n**After:**\n${newMessage.content || '*(No Content)*'}`)
-      .setFooter({ text: `Message ID: ${oldMessage.id}` })
-      .setTimestamp()
-      .setThumbnail(oldMessage.author.displayAvatarURL({ dynamic: true })); // Add user's profile picture
-  
-    logChannel.send({ embeds: [embed] });
-  });
-  
+  }
+
+  if (oldMessage.author.bot) return;
+
+  // Ignore the specified channel
+  if (oldMessage.channel.id === IGNORED_CHANNEL_ID || newMessage.channel.id === IGNORED_CHANNEL_ID) return;
+
+  const logChannel = newMessage.guild.channels.cache.get(LOG_CHANNEL_ID);
+  if (!logChannel) return;
+
+  const embed = new EmbedBuilder()
+    .setTitle('Message Edited')
+    .setColor('#F1C40F') // Yellow color for edited messages
+    .addFields(
+      { name: 'Author', value: `<@${oldMessage.author.id}>`, inline: true }, // Makes the author mentionable
+      { name: 'Channel', value: oldMessage.channel.toString(), inline: true }
+    )
+    .setDescription(`**Before:**\n${oldMessage.content || '*(No Content)*'}\n**After:**\n${newMessage.content || '*(No Content)*'}`)
+    .setFooter({ text: `Message ID: ${oldMessage.id}` })
+    .setTimestamp()
+    .setThumbnail(oldMessage.author.displayAvatarURL({ dynamic: true })); // Add user's profile picture
+
+  logChannel.send({ embeds: [embed] });
+});
 
 // Event for logging nickname or username changes
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
