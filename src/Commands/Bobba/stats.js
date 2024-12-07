@@ -30,33 +30,35 @@ module.exports = {
                 return interaction.editReply(`:no_entry: The user '${username}' was not found.`);
             }
 
-            // Construct the embed with the user data
+            // Construct the embed with the user data (Placed the rows in 3's as it would display this way as well just to have things in order, easier if someone wants to add more stats in the future to the embed).
             const embed = new EmbedBuilder()
-                .setColor('#1DC249')  // Box Color
-                .setTitle(userData.name)
-                .setDescription(`Bobba information on ${userData.name}:`)
-                .setThumbnail(`https://habbo.com/habbo-imaging/avatarimage?figure=${userData.figureString}&gesture=sml&direction=4&head_direction=3&headonly=1&size=l`)
+                .setColor('#1DC249')  
+                .setAuthor({
+                    name: userData.name,
+                    iconURL: `https://imager.bobba.ca/?figure=${userData.figureString}&gesture=sml&direction=4&head_direction=3&headonly=1&size=l`,
+                })                
+                .setDescription(`Bobba Pages Information:`)
                 .addFields(
                     { name: "Username", value: `[${userData.name}](https://bobba.ca/character/${userData.name})`, inline: true },
                     { name: "Created At", value: userData.memberSince, inline: true },
                     { name: "Last Seen", value: userData.lastSeen, inline: true },
-                    { name: "Motto", value: userData.motto, inline: true },
-                    { name: "Gender", value: userData.gender === "M" ? "Male" : "Female", inline: true },
-                    { name: "Online", value: userData.online.toString(), inline: true },
-                    { name: "Gang", value: userData.roleplay.gang !== null ? userData.roleplay.gang : "No Gang", inline: true },
+
                     { name: "Job", value: userData.roleplay.job !== null ? userData.roleplay.job : "No Job", inline: true },
-                    { name: "Kills", value: userData.roleplay.kills.toLocaleString(), inline: true },
-                    { name: "Deaths", value: userData.roleplay.deaths.toLocaleString(), inline: true },
+                    { name: "Gang", value: userData.roleplay.gang !== null ? userData.roleplay.gang : "No Gang", inline: true },
+                    { name: "Married To", value: userData.roleplay.married?.spouse || "Not Married", inline: true },
+       
                     { name: "Punches Thrown", value: userData.roleplay.punchesThrown.toLocaleString(), inline: true },
                     { name: "Punches Received", value: userData.roleplay.punchesReceived.toLocaleString(), inline: true },
                     { name: "Melee Hits", value: userData.roleplay.meleeHits.toLocaleString(), inline: true },
+                    
                     { name: "Bombs Thrown", value: userData.roleplay.bombsThrown.toLocaleString(), inline: true },
                     { name: "Damage Dealt", value: userData.roleplay.damageDealt.toLocaleString(), inline: true },
                     { name: "Damage Received", value: userData.roleplay.damageReceived.toLocaleString(), inline: true },
-                    { name: "Married To", value: userData.roleplay.married?.spouse || "Not Married", inline: true },
-                    { name: "Married Since", value: userData.roleplay.married?.date === 0 ? "Never" : userData.roleplay.married?.date || "N/A", inline: true },
-                    { name: "City Visits", value: userData.roomVisits.toLocaleString(), inline: true },
-                    { name: "Online Time", value: userData.onlineTime, inline: true }
+
+                    { name: "Kills", value: userData.roleplay.kills.toLocaleString(), inline: true },
+                    { name: "Deaths", value: userData.roleplay.deaths.toLocaleString(), inline: true },
+                    { name: "Times Arrested", value: userData.roleplay.arrested.toLocaleString(), inline: true }
+
                 );
 
             await interaction.editReply({ content: '', embeds: [embed] });
