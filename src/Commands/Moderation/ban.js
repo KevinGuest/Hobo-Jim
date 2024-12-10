@@ -1,4 +1,22 @@
 const { EmbedBuilder } = require('discord.js');
+const fs = require('fs');
+const path = require('path');
+
+// Load the logging configuration
+function loadLoggingConfig() {
+  const dataDirectory = path.join(__dirname, '../../Data');
+  const loggingConfigFilePath = path.join(dataDirectory, 'loggingConfig.json');
+
+  if (fs.existsSync(loggingConfigFilePath)) {
+    try {
+      return JSON.parse(fs.readFileSync(loggingConfigFilePath, 'utf8'));
+    } catch (error) {
+      console.error('[Logging] Error reading config file:', error);
+      return {};
+    }
+  }
+  return {};
+}
 
 module.exports = {
   data: {
@@ -63,24 +81,27 @@ module.exports = {
         ephemeral: true, // Only the command issuer can see this
       });
 
-      // Logging the ban to a specific channel
-      const logChannelId = '1286176037398384702'; // Replace with your log channel ID
-      const logChannel = interaction.guild.channels.cache.get(logChannelId);
+      // Dynamically fetch the log channel from the configuration
+      const loggingConfig = loadLoggingConfig();
+      const logChannelId = loggingConfig[interaction.guild.id];
 
-      if (logChannel) {
-        const embed = new EmbedBuilder()
-          .setTitle('User Banned')
-          .setColor('#E33232') // Red for bans
-          .addFields(
-            { name: 'User', value: `<@${targetMember.id}>`, inline: true },
-            { name: 'Banned by', value: `<@${interaction.user.id}>`, inline: true },
-            { name: 'Reason', value: reason, inline: true },
-            { name: 'Time of Ban', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: true }
-          )
-          .setThumbnail(targetMember.user.displayAvatarURL({ dynamic: true }))
-          .setTimestamp();
+      if (logChannelId) {
+        const logChannel = interaction.guild.channels.cache.get(logChannelId);
+        if (logChannel) {
+          const embed = new EmbedBuilder()
+            .setTitle('User Banned')
+            .setColor('#E33232') // Red for bans
+            .addFields(
+              { name: 'User', value: `<@${targetMember.id}>`, inline: true },
+              { name: 'Banned by', value: `<@${interaction.user.id}>`, inline: true },
+              { name: 'Reason', value: reason, inline: true },
+              { name: 'Time of Ban', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: true }
+            )
+            .setThumbnail(targetMember.user.displayAvatarURL({ dynamic: true }))
+            .setTimestamp();
 
-        logChannel.send({ embeds: [embed] });
+          await logChannel.send({ embeds: [embed] });
+        }
       }
     } catch (error) {
       console.error(`Error banning user: ${error}`);

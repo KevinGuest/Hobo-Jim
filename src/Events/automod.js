@@ -10,12 +10,11 @@ const client = new Client({
   ],
 });
 
-// Initialize Google Generative AI with the API key
 const genAI = new GoogleGenerativeAI('AIzaSyACAiM7LJElkuaeYNhzQgBz4_KBFlEBK4s');
 const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
 const REVIEW_CHANNEL_ID = '1297419386654556200';
-const JAIL_ROLE_ID = '1308685225152352328';
+const MUTED_ROLE_ID = '1308685225152352328';
 const excludedRoles = ["Administrators", "Developers", "Bobba Staff", "Discord Moderators"];
 const addressPattern = /\d{1,6}\s(?:[A-Za-z0-9#]+\s){1,4}(?:Avenue|Ave|Street|St|Road|Rd|Boulevard|Blvd|Lane|Ln|Drive|Dr|Court|Ct|Square|Sq|Trail|Trl|Parkway|Pkwy|Commons)/i;
 const explicitKeywords = ["porn", "nudes", "nsfw", "adult content"];
@@ -110,8 +109,10 @@ async function sendToReviewChannel(message, reason) {
   return sentMessage.id;
 }
 
-
 client.on('messageCreate', async (message) => {
+  // Restrict bot to operate only in the specified server
+  if (message.guild?.id !== '857134668770705438') return; // Ignore messages from other servers
+
   if (message.author.bot) return;
 
   const hasExcludedRole = message.member.roles.cache.some(role => excludedRoles.includes(role.name));
@@ -151,6 +152,9 @@ client.on('messageCreate', async (message) => {
 });
 
 client.on('interactionCreate', async (interaction) => {
+  // Restrict bot to operate only in the specified server
+  if (interaction.guild?.id !== '857134668770705438') return; // Ignore interactions from other servers
+
   if (!interaction.isButton()) return;
 
   // Parse the action and IDs
@@ -162,27 +166,26 @@ client.on('interactionCreate', async (interaction) => {
     const reviewMessage = await reviewChannel.messages.fetch(interaction.message.id);
 
     if (action === 'delete') {
-      const jailConfirmRow = new ActionRowBuilder().addComponents(
+      const muteConfirmRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId(`jail_yes_${channelId}_${messageId}`)
-          .setLabel('Yes, Jail')
+          .setCustomId(`mute_yes_${channelId}_${messageId}`)
+          .setLabel('Yes, Mute')
           .setStyle(ButtonStyle.Danger),
         new ButtonBuilder()
-          .setCustomId(`jail_no_${channelId}_${messageId}`)
+          .setCustomId(`mute_no_${channelId}_${messageId}`)
           .setLabel('No, Delete')
           .setStyle(ButtonStyle.Secondary)
       );
 
       const updatedEmbed = EmbedBuilder.from(reviewMessage.embeds[0]).spliceFields(0, 1, {
         name: 'Status',
-        value: 'Pending: Jail Confirmation',
+        value: 'Pending: Mute Confirmation',
         inline: true,
       });
 
-      await reviewMessage.edit({ embeds: [updatedEmbed], components: [jailConfirmRow] });
+      await reviewMessage.edit({ embeds: [updatedEmbed], components: [muteConfirmRow] });
       await interaction.deferUpdate();
-    } else if (action === 'jail' && option === 'yes') {
-    
+    } else if (action === 'mute' && option === 'yes') {
       const userIdMatch = reviewMessage.embeds[0].description.match(/<@(\d+)>/);
       if (!userIdMatch) {
         console.error('Failed to extract user ID from embed.');
@@ -192,10 +195,10 @@ client.on('interactionCreate', async (interaction) => {
         });
         return;
       }
-    
+
       const userId = userIdMatch[1];
       const guildMember = interaction.guild.members.cache.get(userId);
-    
+
       if (!guildMember) {
         console.error('User not found in the guild.');
         await interaction.reply({
@@ -204,45 +207,45 @@ client.on('interactionCreate', async (interaction) => {
         });
         return;
       }
-        
-      await guildMember.roles.add(JAIL_ROLE_ID);
-    
+
+      await guildMember.roles.add(MUTED_ROLE_ID);
+
       const updatedEmbed = EmbedBuilder.from(reviewMessage.embeds[0]).spliceFields(0, 1, {
         name: 'Status',
-        value: `Jailed by <@${interaction.user.id}> for 10 minutes.`,
+        value: `Muted by <@${interaction.user.id}> for 10 minutes.`,
         inline: true,
       });
-    
+
       await reviewMessage.edit({ embeds: [updatedEmbed], components: [] });
-    
-      const jailEmbed = new EmbedBuilder()
-        .setTitle('🔒 User Jailed')
-        .setColor('#E67E22') // Orange color
-        .setDescription(`User <@${userId}> has been jailed.`)
+
+      const muteEmbed = new EmbedBuilder()
+        .setTitle('🔒 User Muted')
+        .setColor('#E67E22')
+        .setDescription(`User <@${userId}> has been muted.`)
         .addFields(
           { name: 'Duration', value: '10 minutes', inline: true },
           { name: 'Moderator', value: `<@${interaction.user.id}>`, inline: true }
         )
         .setTimestamp();
-    
+
       const logsChannel = interaction.guild.channels.cache.get('1286176037398384702');
       if (logsChannel) {
-        await logsChannel.send({ embeds: [jailEmbed] });
+        await logsChannel.send({ embeds: [muteEmbed] });
       } else {
         console.error('Logs channel not found.');
       }
-    
+
       setTimeout(async () => {
-        if (guildMember.roles.cache.has(JAIL_ROLE_ID)) {
-          console.log(`Removing Jail role from user: ${guildMember.id}`);
-          await guildMember.roles.remove(JAIL_ROLE_ID);
-    
+        if (guildMember.roles.cache.has(MUTE_ROLE_ID)) {
+          console.log(`Removing Muted role from user: ${guildMember.id}`);
+          await guildMember.roles.remove(MUTE_ROLE_ID);
+
           const releaseEmbed = new EmbedBuilder()
-            .setTitle('🔓 User Released')
-            .setDescription(`<@${userId}> has been released from jail after serving 10 minutes.`)
-            .setColor('#43BA55') // Green color
+            .setTitle('🔓 User Unmuted')
+            .setDescription(`<@${userId}> has been unmuted after serving 10 minutes.`)
+            .setColor('#43BA55')
             .setTimestamp();
-    
+
           if (logsChannel) {
             await logsChannel.send({ embeds: [releaseEmbed] });
           } else {
@@ -250,14 +253,13 @@ client.on('interactionCreate', async (interaction) => {
           }
         }
       }, 10 * 60 * 1000);
-    
+
       await interaction.reply({
-        embeds: [jailEmbed],
+        embeds: [muteEmbed],
         ephemeral: true,
       });
-    }
-     else if (action === 'jail' && option === 'no') {
-      console.log('Jail No action triggered.');
+    } else if (action === 'mute' && option === 'no') {
+      console.log('Mute No action triggered.');
 
       const flaggedMessage = await originalChannel?.messages.fetch(messageId).catch(() => null);
 
@@ -274,7 +276,6 @@ client.on('interactionCreate', async (interaction) => {
       await reviewMessage.edit({ embeds: [updatedEmbed], components: [] });
       await interaction.deferUpdate();
     } else if (action === 'ignore') {
-
       const updatedEmbed = EmbedBuilder.from(reviewMessage.embeds[0]).spliceFields(0, 1, {
         name: 'Status',
         value: `Ignored by <@${interaction.user.id}>.`,
@@ -294,7 +295,7 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.once('ready', () => {
-  console.log(`Google Gemini AutoMod is now online!`);
+  console.log('Google Gemini AutoMod is now online!');
 });
 
 client.login('NTg4NTQxNTI5NTIyNzAwMzAx.GXG-Pw.3Pua78SsdbYRgyRPsLKiZRb3jhPryGHQv4cAhQ'); // Bot token

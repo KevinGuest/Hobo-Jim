@@ -1,4 +1,22 @@
 const { EmbedBuilder } = require('discord.js');
+const fs = require('fs');
+const path = require('path');
+
+// Load the logging configuration
+function loadLoggingConfig() {
+  const dataDirectory = path.join(__dirname, '../../Data');
+  const loggingConfigFilePath = path.join(dataDirectory, 'loggingConfig.json');
+
+  if (fs.existsSync(loggingConfigFilePath)) {
+    try {
+      return JSON.parse(fs.readFileSync(loggingConfigFilePath, 'utf8'));
+    } catch (error) {
+      console.error('[Logging] Error reading config file:', error);
+      return {};
+    }
+  }
+  return {};
+}
 
 const rules = [
   "**Server Rules & Information**\n*Last updated: September 25th, 2024*",
@@ -100,25 +118,28 @@ module.exports = {
 
       await interaction.reply({ embeds: [userWarningEmbed], ephemeral: false });
 
-      // Log the warning in the specified log channel
-      const logChannelId = '1286176037398384702'; // Replace with your log channel ID
-      const logChannel = interaction.guild.channels.cache.get(logChannelId);
+      // Log the warning in the dynamically configured log channel
+      const loggingConfig = loadLoggingConfig();
+      const logChannelId = loggingConfig[interaction.guild.id];
 
-      if (logChannel) {
-        const logEmbed = new EmbedBuilder()
-          .setTitle('User Warned')
-          .setColor('#FFA500')
-          .addFields(
-            { name: 'User', value: `<@${targetMember.id}>`, inline: true },
-            { name: 'Warned by', value: `<@${interaction.user.id}>`, inline: true },
-            { name: 'Rule Violated', value: `#${ruleNumber} - ${ruleText}`, inline: false },
-            { name: 'Reason', value: reason, inline: false },
-            { name: 'Time of Warning', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: true }
-          )
-          .setThumbnail(targetMember.user.displayAvatarURL({ dynamic: true }))
-          .setTimestamp();
+      if (logChannelId) {
+        const logChannel = interaction.guild.channels.cache.get(logChannelId);
+        if (logChannel) {
+          const logEmbed = new EmbedBuilder()
+            .setTitle('User Warned')
+            .setColor('#FFA500')
+            .addFields(
+              { name: 'User', value: `<@${targetMember.id}>`, inline: true },
+              { name: 'Warned by', value: `<@${interaction.user.id}>`, inline: true },
+              { name: 'Rule Violated', value: `#${ruleNumber} - ${ruleText}`, inline: false },
+              { name: 'Reason', value: reason, inline: false },
+              { name: 'Time of Warning', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: true }
+            )
+            .setThumbnail(targetMember.user.displayAvatarURL({ dynamic: true }))
+            .setTimestamp();
 
-        await logChannel.send({ embeds: [logEmbed] });
+          await logChannel.send({ embeds: [logEmbed] });
+        }
       }
     } catch (error) {
       console.error(`Error warning user: ${error}`);

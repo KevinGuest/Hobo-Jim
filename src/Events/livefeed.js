@@ -4,236 +4,214 @@ const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
 
-// File to store processed event hashes, Load and Save...
+// Configuration paths
+const configPath = path.join(__dirname, '../Data/livefeedConfig.json');
 const processedEventFile = path.join(__dirname, '../Data/livefeedEvents.json');
-let processedEventIds = new Set();
-let messageQueue = [];  // Queue to hold messages
 
-// Load processed event IDs from file
-function loadProcessedEventIds() {
-    if (fs.existsSync(processedEventFile)) {
-        const data = fs.readFileSync(processedEventFile, 'utf8');
-        try {
-            const loadedIds = JSON.parse(data);
-            processedEventIds = new Set(loadedIds);
-            console.log(`Live Feed - Loaded ${loadedIds.length} processed event IDs from file.`);
-        } catch (err) {
-            console.error('[ERROR] Failed to load processed event IDs. Invalid JSON. Resetting file.');
-            processedEventIds = new Set();
-            saveProcessedEventIds();
-        }
+// Globals
+let processedEventIds = new Set();
+let messageQueue = [];
+const processingLock = new Set();
+let liveFeedConfig = {};
+
+// Load configuration
+function loadLiveFeedConfig() {
+    try {
+        return fs.existsSync(configPath) ? JSON.parse(fs.readFileSync(configPath, 'utf8')) : {};
+    } catch (error) {
+        console.error('[LiveFeed] Error loading config:', error);
+        return {};
     }
 }
 
-// Save processed event IDs to file
+// Save the live feed configuration
+function saveLiveFeedConfig(config) {
+    try {
+        fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+    } catch (error) {
+        console.error('[LiveFeed] Error saving config:', error);
+    }
+}
+
+// Load processed event IDs
+function loadProcessedEventIds() {
+    try {
+        if (fs.existsSync(processedEventFile)) {
+            const data = JSON.parse(fs.readFileSync(processedEventFile, 'utf8'));
+            processedEventIds = new Set(data);
+            console.log(`[LiveFeed] Loaded ${data.length} processed event IDs.`);
+        }
+    } catch (error) {
+        console.error('[LiveFeed] Error loading processed IDs:', error);
+    }
+}
+
+// Save processed event IDs
+let saveTimeout = null;
 function saveProcessedEventIds() {
-    fs.writeFileSync(processedEventFile, JSON.stringify(Array.from(processedEventIds)));
+    if (saveTimeout) return;
+    saveTimeout = setTimeout(() => {
+        fs.writeFileSync(processedEventFile, JSON.stringify(Array.from(processedEventIds)));
+        saveTimeout = null;
+    }, 5000);
 }
 
-// Function to generate a unique hash for the message
+// Generate a unique hash for the message
 function generateHash(message) {
-    return crypto.createHash('sha1').update(message).digest('hex');
+    return crypto.createHash('sha256').update(message).digest('hex');
 }
 
-// Function to strip HTML tags and detect emoji/color based on key phrases in the message
-function parseMessageForColor(html) {
-    let color = '#5DCBF0';
-    let message = html;
-
-    // Strip any remaining HTML tags
-    message = message.replace(/<\/?[^>]+(>|$)/g, '');
-
-     // List of keywords to ignore
-     const ignoreKeywords = [
-        'a game of brawl',
-        'a game of team brawl',
-        'a game of scavenger',
-        'a game of landmines',
+// Parse messages for color
+function parseMessageForColor(message) {
+    // Keyword-to-color mapping
+    const colorMapping = [
+        { keywords: ['murdered'], emoji: '🔪', color: '#E33232' },
+        { keywords: ['suicide'], emoji: '☠️', color: '#E33232' },
+        { keywords: ['guilty'], emoji: '⚖️', color: '#E33232' },
+        { keywords: ['arrested'], emoji: '🚔', color: '#5EB6D1' },
+        { keywords: ['escorted'], emoji: '🪝', color: '#5EB6D1' },
+        { keywords: ['released'], emoji: '🕊️', color: '#5EB6D1' },
+        { keywords: ['evaded'], emoji: '🏃‍♂️', color: '#5EB6D1' },
+        { keywords: ['ticketed'], emoji: '🎫', color: '#5EB6D1' },
+        { keywords: ['pardoned'], emoji: '🎉', color: '#5EB6D1' },
+        { keywords: ['robbed'], emoji: '🦹‍♂️', color: '#5EB6D1' },
+        { keywords: ['blacklisted'], emoji: '⛔', color: '#000000' },
+        { keywords: ['divorced'], emoji: '💔', color: '#000000' },
+        { keywords: ['married'], emoji: '💍', color: '#D3D3D3' },
+        { keywords: ['innocent'], emoji: '🕊️', color: '#D3D3D3' },
+        { keywords: ['hired'], emoji: '📝', color: '#43BA55' },
+        { keywords: ['fired'], emoji: '💼', color: '#E33232' },
+        { keywords: ['quit'], emoji: '🚪', color: '#E33232' },
+        { keywords: ['promoted'], emoji: '🎉', color: '#43BA55' },
+        { keywords: ['demoted'], emoji: '😓', color: '#43BA55' },
+        { keywords: ['won'], emoji: '🏆', color: '#D9CC43' },
+        { keywords: ['beat'], emoji: '🏆', color: '#D9CC43' },
+        { keywords: ['blew up', 'blown up'], emoji: '💣', color: '#E33232' },
+        { keywords: ['home'], emoji: '🏠', color: '#43BA55' },
+        { keywords: ['placed a bounty'], emoji: '🎯', color: '#E33232' },
+        { keywords: ['removed their bounty'], emoji: '🗑️', color: '#43BA55' },
+        { keywords: ['claimed'], emoji: '💰', color: '#E33232' },
+        { keywords: ['sanitation'], emoji: '♻️', color: '#43BA55' },
+        { keywords: ['Forge Industries'], emoji: '🏭', color: '#5EB6D1' },
+        { keywords: ['knocked'], emoji: '🥊', color: '#E33232' },
+        { keywords: ['eliminated'], emoji: '⚔️', color: '#E33232' },
+        { keywords: ['radioactivity'], emoji: '☢️', color: '#E33232' },
+        { keywords: ['meltdown'], emoji: '🛑', color: '#43BA55' },
+        { keywords: ['hospital'], emoji: '🚑', color: '#43BA55' },
     ];
 
-    for (const keyword of ignoreKeywords) {
-        if (message.toLowerCase().includes(keyword)) {
-            return null;
+    let cleanMessage = message.replace(/<\/?[^>]+(>|$)/g, ''); // Strip HTML tags
+    let color = '#5DCBF0';
+
+    for (const { keywords, emoji, color: mapColor } of colorMapping) {
+        if (keywords.some(keyword => cleanMessage.toLowerCase().includes(keyword))) {
+            color = mapColor;
+            cleanMessage = `${emoji} ${cleanMessage}`;
+            break;
         }
     }
 
-    // Add emoji and set color based on key phrases (individual checks for each)
-    if (message.toLowerCase().includes('murdered')) {
-        message = '🔪 ' + message;
-        color = '#E33232';
-    } else if (message.toLowerCase().includes('suicide')) {
-        message = '☠️ ' + message;
-        color = '#E33232';
-    } else if (message.toLowerCase().includes('guilty')) {
-        message = '⚖️ ' + message;
-        color = '#E33232';
-    } else if (message.toLowerCase().includes('arrested')) {
-        message = '🚔 ' + message;
-        color = '#5EB6D1';
-    } else if (message.toLowerCase().includes('escorted')) {
-        message = '🪝 ' + message;
-        color = '#5EB6D1';
-    } else if (message.toLowerCase().includes('released')) {
-        message = '🕊️ ' + message;
-        color = '#5EB6D1'; 
-    } else if (message.toLowerCase().includes('evaded')) {
-        message = '🏃‍♂️ ' + message;
-        color = '#5EB6D1'; 
-    } else if (message.toLowerCase().includes('ticketed')) {
-        message = '🎫 ' + message;
-        color = '#5EB6D1'; 
-    } else if (message.toLowerCase().includes('pardoned')) {
-        message = '🎉 ' + message;
-        color = '#5EB6D1'; 
-    } else if (message.toLowerCase().includes('robbed')) {
-        message = '🦹‍♂️ ' + message;
-        color = '#5EB6D1'; 
-    } else if (message.toLowerCase().includes('blacklisted')) {
-        message = '⛔ ' + message;
-        color = '#000000'; 
-    } else if (message.toLowerCase().includes('divorced')) {
-        message = '💔 ' + message;
-        color = '#000000'; 
-    } else if (message.toLowerCase().includes('married')) {
-        message = '💍 ' + message;
-        color = '#D3D3D3';
-    } else if (message.toLowerCase().includes('innocent')) {
-        message = '🕊️ ' + message;
-        color = '#D3D3D3'; 
-    } else if (message.toLowerCase().includes('hired')) {
-        message = '📝 ' + message;
-        color = '#43BA55'; 
-    } else if (message.toLowerCase().includes('fired')) {
-        message = '💼 ' + message;
-        color = '#E33232';
-    } else if (message.toLowerCase().includes('quit')) {
-        message = '🚪 ' + message;
-        color = '#E33232'; 
-    } else if (message.toLowerCase().includes('promoted')) {
-        message = '🎉 ' + message;
-        color = '#43BA55'; 
-    } else if (message.toLowerCase().includes('demoted')) {
-        message = '😓 ' + message;
-        color = '#43BA55';
-    } else if (message.toLowerCase().includes('won')) {
-        message = '🏆 ' + message;
-        color = '#D9CC43';
-    } else if (message.toLowerCase().includes('beat')) {
-        message = '🏆 ' + message;
-        color = '#D9CC43';
-    } else if (message.toLowerCase().includes('blew up') || message.toLowerCase().includes('blown up')) {
-        message = '💣 ' + message;
-        color = '#E33232';
-    } else if (message.toLowerCase().includes('home')) {
-        message = '🏠 ' + message;
-        color = '#43BA55'; 
-    } else if (message.toLowerCase().includes('placed a bounty')) {
-        message = '🎯 ' + message;
-        color = '#E33232';
-    } else if (message.toLowerCase().includes('removed their bounty')) {
-        message = '🗑️ ' + message;
-        color = '#43BA55';
-    } else if (message.toLowerCase().includes('claimed')) {
-        message = '💰 ' + message;
-        color = '#E33232';
-    }
-      else if (message.toLowerCase().includes('sanitation')) {
-        message = '♻️ ' + message;
-        color = '#43BA55';
-    }
-      else if (message.toLowerCase().includes('factory')) {
-        message = '🏭 ' + message;
-        color = '#5EB6D1';
-    }
-      else if (message.toLowerCase().includes('knocked')) {
-        message = '🥊 ' + message;
-        color = '#E33232';
-    }
-      else if (message.toLowerCase().includes('eliminated')) {
-        message = '⚔️ ' + message;
-        color = '#E33232';
-    }
-    else if (message.toLowerCase().includes('radioactivity')) {
-        message = '☢️ ' + message;
-        color = '#E33232';
-    }
-    else if (message.toLowerCase().includes('meltdown')) {
-        message = '🛑 ' + message;
-        color = '#43BA55';
-    }
-    else if (message.toLowerCase().includes('hospital')) {
-        message = '🚑 ' + message;
-        color = '#43BA55';
-    }
-
-    // Return the clean message (stripped of HTML) and the selected color based on livefeed action...
-    return { message: message.trim(), color };
+    return { message: cleanMessage.trim(), color };
 }
 
-// Process the message queue at a rate of 9 messages per second
+// Process individual events
+async function processEvent(eventId, message) {
+    if (processingLock.has(eventId)) return;
+    processingLock.add(eventId);
+
+    try {
+        if (processedEventIds.has(eventId)) return;
+
+        processedEventIds.add(eventId);
+        saveProcessedEventIds();
+
+        const { message: cleanMessage, color } = parseMessageForColor(message);
+        if (!cleanMessage) return;
+
+        for (const [guildId, channelId] of Object.entries(liveFeedConfig)) {
+            const guild = client.guilds.cache.get(guildId);
+            if (!guild) continue;
+
+            const channel = guild.channels.cache.get(channelId);
+            if (!channel || !(channel instanceof TextChannel)) continue;
+
+            const embed = new EmbedBuilder().setColor(color).setDescription(cleanMessage);
+
+            if (!messageQueue.some(msg => msg.embed.description === cleanMessage && msg.channel.id === channel.id)) {
+                messageQueue.push({ channel, embed });
+            }
+        }
+    } catch (error) {
+        console.error('[LiveFeed] Error processing event:', error);
+    } finally {
+        processingLock.delete(eventId);
+    }
+}
+
+// Process messages in the queue
 setInterval(async () => {
     if (messageQueue.length > 0) {
-        const messagesToSend = messageQueue.splice(0, 9);
+        const messagesToSend = messageQueue.splice(0, 5);
         for (const { channel, embed } of messagesToSend) {
-            await channel.send({ embeds: [embed] });
+            try {
+                await channel.send({ embeds: [embed] });
+            } catch (error) {
+                console.error('[LiveFeed] Error sending message:', error);
+            }
         }
     }
-}, 1000);  // 1000 ms interval to process the queue
+}, 1000);
 
+// Discord client initialization
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
 
-client.once('ready', async () => {
-    console.log(`Live Feed has started!`);
+client.once('ready', () => {
+    console.log('LiveFeed has successfully started!');
     loadProcessedEventIds();
-    
-    const channelId = '1297385881295917088';
-    const channel = client.channels.cache.get(channelId);
-    if (!channel || !(channel instanceof TextChannel)) {
-        console.error("Invalid channel ID or the channel is not a text channel.");
-        return;
-    }
+    liveFeedConfig = loadLiveFeedConfig(); // Load initial configuration
 
     let websocket;
 
-    function initSocket() {
+    function initWebSocket() {
         websocket = new WebSocket('wss://ws.bobba.ca:8443/LiveFeed');
 
         websocket.onopen = () => {
-            const msg = {
-                EventName: "livefeed", 
-                Bypass: false, 
-                ExtraData: null, 
-                JSON: true
-            };
-            websocket.send(JSON.stringify(msg));
+            //console.log('[LiveFeed] WebSocket connected.');
+            websocket.send(JSON.stringify({ EventName: 'livefeed', Bypass: false, ExtraData: null, JSON: true }));
         };
 
-        websocket.onmessage = async (event) => {
+        websocket.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
-                if (!data || data.length === 0) return;
+                if (!data || !Array.isArray(data)) return;
 
-                for (const value of data) {
-                    const { liveAction: message } = value;
+                data.forEach(({ liveAction: message }) => {
                     const eventId = generateHash(message);
-                    if (processedEventIds.has(eventId)) continue;
-
-                    processedEventIds.add(eventId);
-                    const { message: cleanMessage, color } = parseMessageForColor(message);
-                    const embed = new EmbedBuilder().setColor(color).setDescription(cleanMessage);
-                    messageQueue.push({ channel, embed });  // Queue the message instead of sending immediately
-                    saveProcessedEventIds();
-                }
+                    processEvent(eventId, message);
+                });
             } catch (error) {
-                console.error("[WEBSOCKET] Error processing live feed message:", error);
+                console.error('[LiveFeed] Error processing WebSocket message:', error);
             }
         };
 
-        websocket.onclose = () => setTimeout(initSocket, 5000);
-        websocket.onerror = (error) => console.error("[WEBSOCKET] WebSocket error occurred:", error.message);
+        websocket.onclose = () => {
+            //console.warn('[LiveFeed] WebSocket disconnected. Reconnecting...');
+            setTimeout(initWebSocket, 5000);
+        };
+
+        websocket.onerror = (error) => {
+            console.error('[LiveFeed] WebSocket error:', error.message);
+        };
     }
 
-    initSocket();
+    initWebSocket();
+
+    // Listen for live feed updates and reload config dynamically
+    client.on('liveFeedUpdate', (guildId, channelId) => {
+        console.log(`[LiveFeed] Updating live feed channel for guild ${guildId} to channel ${channelId}`);
+        liveFeedConfig[guildId] = channelId;
+        saveLiveFeedConfig(liveFeedConfig);
+    });
 });
 
 client.login('NTg4NTQxNTI5NTIyNzAwMzAx.GXG-Pw.3Pua78SsdbYRgyRPsLKiZRb3jhPryGHQv4cAhQ');
