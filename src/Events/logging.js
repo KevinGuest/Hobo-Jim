@@ -338,5 +338,4 @@ client.on('guildMemberAdd', async (member) => {
     logChannel.send({ embeds: [embed] });
 });
 
-// Login the bot with your token
-client.login('NTg4NTQxNTI5NTIyNzAwMzAx.GXG-Pw.3Pua78SsdbYRgyRPsLKiZRb3jhPryGHQv4cAhQ'); // Replace with your bot token
+client.login('ODU5NzA5Mjk3ODk3NzY2OTEz.Gh6b1T.Peni-WAa50EMbUumH-Z0sZU2lISMU8HW5m8NWs');
