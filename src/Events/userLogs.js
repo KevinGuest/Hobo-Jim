@@ -1,175 +1,137 @@
-const { Client, GatewayIntentBits, TextChannel, EmbedBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, TextChannel, EmbedBuilder, PermissionsBitField } = require('discord.js');
 const WebSocket = require('ws');
 const crypto = require('crypto');
-const path = require('path');
-const fs = require('fs');
 
-// Configuration paths
-const configPath = path.join(__dirname, '../Data/userLogConfig.json');
-const processedEventFile = path.join(__dirname, '../Data/userLogEvents.json');
+// Hardcoded server ID
+const SERVER_ID = '1317256023274426489';
 
-// Globals
-let processedEventIds = new Set();
-let UserLogsConfig = {};
+// Hardcoded channel IDs for different keyword groups (server-specific)
+const CHANNEL_IDS = {
+    credits: '1317752676506931231', // All Money (Credit) Tracking
+};
 
-// Load configuration
-function loadUserLogsConfig() {
-    try {
-        return fs.existsSync(configPath) ? JSON.parse(fs.readFileSync(configPath, 'utf8')) : {};
-    } catch (error) {
-        console.error('[UserLogs] Error loading config:', error);
-        return {};
-    }
-}
+// Processed event IDs to prevent duplicates
+const processedEventIds = new Set();
 
-// Save the configuration
-function saveUserLogsConfig(config) {
-    try {
-        fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-    } catch (error) {
-        console.error('[UserLogs] Error saving config:', error);
-    }
-}
+// Keywords mapping to channels and embed colors
+const keywordMapping = [
+    { keywords: ['purchased'], emoji: '🛍️', color: '#43BA55', channel: CHANNEL_IDS.credits },
+    { keywords: ['gave'], emoji: '💸', color: '#E33232', channel: CHANNEL_IDS.credits },
+    { keywords: ['tip'], emoji: '🤑', color: '#FEE75C', channel: CHANNEL_IDS.credits },
+    { keywords: ['paid'], emoji: '💰', color: '#5865F2', channel: CHANNEL_IDS.credits },
+    { keywords: ['received'], emoji: '📩', color: '#FEE75C', channel: CHANNEL_IDS.credits },
+    { keywords: ['given'], emoji: '📩', color: '#FEE75C', channel: CHANNEL_IDS.credits },
+];
 
-// Load processed event IDs
-function loadProcessedEventIds() {
-    if (fs.existsSync(processedEventFile)) {
-        try {
-            const data = JSON.parse(fs.readFileSync(processedEventFile, 'utf8'));
-
-            // Validate that the data is an array
-            if (Array.isArray(data)) {
-                processedEventIds = new Set(data);
-                console.log(`[UserLogs] Loaded ${processedEventIds.size} processed event IDs.`);
-            } else {
-                throw new Error('Invalid data format in processedEventFile (expected an array).');
-            }
-        } catch (error) {
-            console.error('[UserLogs] Error loading processed IDs:', error.message);
-
-            // Reset to an empty array if data is invalid
-            processedEventIds = new Set();
-            saveProcessedEventIds(); // Save the corrected file
-        }
-    } else {
-        // Initialize the file if it doesn't exist
-        processedEventIds = new Set();
-        saveProcessedEventIds();
-    }
-}
-
-// Save processed event IDs
-function saveProcessedEventIds() {
-    try {
-        fs.writeFileSync(processedEventFile, JSON.stringify(Array.from(processedEventIds), null, 2));
-    } catch (error) {
-        console.error('[UserLogs] Error saving processed IDs:', error.message);
-    }
-}
-
-// Generate a unique hash for the message
+// Generate a unique hash for each message to prevent duplicates
 function generateHash(message) {
     return crypto.createHash('sha256').update(message.trim().toLowerCase()).digest('hex');
 }
 
-// Parse messages for color
-function parseMessageForColor(message) {
-    const colorMapping = [
-        { keywords: ['purchase'], emoji: '🛍️', color: '#E33232' },
-        { keywords: ['gave'], emoji: '💸', color: '#E33232' },
-        { keywords: ['received'], emoji: '🤑', color: '#E33232' },
-        { keywords: ['tip'], emoji: '🪙', color: '#E33232' },
-        { keywords: ['paid'], emoji: '💰', color: '#E33232' },
-        { keywords: ['deposited'], emoji: '🏦', color: '#E33232' },
-        { keywords: ['withdrew'], emoji: '🏦', color: '#E33232' },
-        { keywords: ['robbed'], emoji: '🏴‍☠️', color: '#E33232' },
-    ];
+// Clean and parse messages, determine the appropriate channel and styling
+function parseMessage(message) {
+    const cleanMessage = message
+        .replace(/<[^>]*>/g, '') // Strip HTML tags
+        .replace(/\s+/g, ' ')   // Replace multiple spaces with single space
+        .trim();
 
-    let cleanMessage = message.replace(/<\/?[^>]+(>|$)/g, ''); // Strip HTML tags
-
-    for (const { keywords, emoji, color } of colorMapping) {
+    for (const { keywords, emoji, color, channel } of keywordMapping) {
         if (keywords.some(keyword => cleanMessage.toLowerCase().includes(keyword))) {
-            cleanMessage = `${emoji} ${cleanMessage}`;
-            return { message: cleanMessage.trim(), color };
+            return { message: `${emoji} ${cleanMessage}`, color, channel };
         }
     }
 
-    return null; // Return null if no match is found
+    return null; // If no keyword matches
 }
 
-// Process individual events
+// Process an event, check for duplicates, and send the message to the correct channel
 async function processEvent(eventId, message, client) {
-    if (processedEventIds.has(eventId)) return; // Skip duplicate events
+    if (processedEventIds.has(eventId)) return; // Skip duplicates
     processedEventIds.add(eventId);
-    saveProcessedEventIds();
 
-    const parsedMessage = parseMessageForColor(message);
-    if (!parsedMessage) return; // Skip unmatched messages
+    const parsed = parseMessage(message);
+    if (!parsed) return;
 
-    const { message: cleanMessage, color } = parsedMessage;
+    const { message: formattedMessage, color, channel: channelId } = parsed;
 
-    for (const [guildId, channelId] of Object.entries(UserLogsConfig)) {
-        const guild = client.guilds.cache.get(guildId);
-        if (!guild) continue;
+    try {
+        const guild = await client.guilds.fetch(SERVER_ID);
+        const channel = await guild.channels.fetch(channelId);
+        if (!channel || !(channel instanceof TextChannel)) {
+            console.warn(`[UserLogs] Invalid or missing channel: ${channelId}`);
+            return;
+        }
 
-        const channel = guild.channels.cache.get(channelId);
-        if (!channel || !(channel instanceof TextChannel)) continue;
+        // Check bot permissions
+        const permissions = channel.permissionsFor(client.user);
+        if (!permissions.has(PermissionsBitField.Flags.SendMessages)) {
+            console.warn(`[UserLogs] Missing 'Send Messages' permission for channel ${channelId}`);
+            return;
+        }
+        if (!permissions.has(PermissionsBitField.Flags.EmbedLinks)) {
+            console.warn(`[UserLogs] Missing 'Embed Links' permission for channel ${channelId}`);
+            return;
+        }
 
+        // Send embed message
         const embed = new EmbedBuilder()
             .setColor(color)
-            .setDescription(cleanMessage)
-            .setTimestamp();
+            .setDescription(formattedMessage);
 
-        try {
-            await channel.send({ embeds: [embed] });
-        } catch (error) {
-            console.error('[UserLogs] Error sending message:', error.message);
-        }
+        await channel.send({ embeds: [embed] });
+    } catch (error) {
+        console.error(`[UserLogs] Failed to send message to channel ${channelId}:`, error.message);
     }
 }
 
-// Discord client initialization
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
+// Initialize the WebSocket connection
+function initWebSocket(client) {
+    const websocket = new WebSocket('wss://ws.bobba.ca:8443/Logs');
 
-client.once('ready', () => {
-    console.log('UserLogs has successfully started!');
-    loadProcessedEventIds();
-    UserLogsConfig = loadUserLogsConfig();
+    websocket.onopen = () => {
+        console.warn('[UserLogs] WebSocket connected.');
+        websocket.send(JSON.stringify({ EventName: 'userlogs', Bypass: false, ExtraData: null, JSON: true }));
+    };
 
-    let websocket;
-
-    function initWebSocket() {
-        websocket = new WebSocket('wss://ws.bobba.ca:8443/Logs');
-
-        websocket.onopen = () => {
-            websocket.send(JSON.stringify({ EventName: 'UserLogs', Bypass: false, ExtraData: null, JSON: true }));
-        };
-
-        websocket.onmessage = async (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                if (!data || !Array.isArray(data)) return;
-
+    websocket.onmessage = async (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            if (Array.isArray(data)) {
                 for (const { logAction: message } of data) {
                     const eventId = generateHash(message);
                     await processEvent(eventId, message, client);
                 }
-            } catch (error) {
-                console.error('[UserLogs] Error processing WebSocket message:', error.message);
+            } else {
+                console.warn('[UserLogs] Received invalid data format.');
             }
-        };
+        } catch (error) {
+            console.error('[UserLogs] Error processing WebSocket message:', error.message);
+        }
+    };
 
-        websocket.onclose = () => setTimeout(initWebSocket, 5000);
-        websocket.onerror = (error) => console.error('[UserLogs] WebSocket error:', error.message);
-    }
+    websocket.onclose = () => {
+        console.warn('[UserLogs] WebSocket disconnected. Reconnecting in 5 seconds...');
+        setTimeout(() => initWebSocket(client), 5000);
+    };
 
-    initWebSocket();
+    websocket.onerror = (error) => {
+        console.error('[UserLogs] WebSocket error:', error.message);
+    };
+}
 
-    client.on('UserLogsUpdate', (guildId, channelId) => {
-        UserLogsConfig[guildId] = channelId;
-        saveUserLogsConfig(UserLogsConfig);
-        console.log(`[UserLogs] Updated logs channel for guild ${guildId} to ${channelId}`);
-    });
+// Discord bot client setup
+const client = new Client({
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,
+    ],
 });
 
+client.once('ready', () => {
+    console.warn('UserLogs has successfully started!');
+    initWebSocket(client);
+});
+
+// Bot login
 client.login('ODU5NzA5Mjk3ODk3NzY2OTEz.Gh6b1T.Peni-WAa50EMbUumH-Z0sZU2lISMU8HW5m8NWs');
