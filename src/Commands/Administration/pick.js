@@ -120,7 +120,7 @@ module.exports = {
       const embed = new EmbedBuilder()
         .setTitle("🎉 Winners Selected!")
         .setDescription(
-          `Congratulations to the following winners:\n\n${winnersList.join(
+          `@everyone Congratulations to the following winners:\n\n${winnersList.join(
             "\n"
           )}\n\n**Instructions:**\nPlease create a ticket in <#${ticketChannelId}> referencing this message and include your in-game username.`
         )
